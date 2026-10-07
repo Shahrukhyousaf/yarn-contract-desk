@@ -1,0 +1,1801 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Yarn Contract Desk</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>%F0%9F%A7%B6</text></svg>">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Spectral:wght@400;500;600;700&family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#F6F2EA;
+    --surface:#FFFFFF;
+    --surface-alt:#EFE8D8;
+    --ink:#242019;
+    --ink-muted:#6B6152;
+    --accent:#A6742C;
+    --accent-ink:#3A2E14;
+    --deep:#2E3A63;
+    --deep-ink:#EDEFF6;
+    --border:#DED2B4;
+    --danger:#A23B3B;
+    --danger-bg:#F6E7E5;
+    --success:#4C6B4F;
+    --radius:10px;
+    --font-display:'Spectral', Georgia, 'Times New Roman', serif;
+    --font-body:'IBM Plex Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    --font-mono:'IBM Plex Mono', 'SFMono-Regular', Consolas, monospace;
+  }
+  :root:not([data-theme="light"]) {
+    @media (prefers-color-scheme: dark){
+      --bg:#191712;
+      --surface:#231F19;
+      --surface-alt:#2C271E;
+      --ink:#EDE7D9;
+      --ink-muted:#B0A78F;
+      --accent:#D2A24C;
+      --accent-ink:#241C0C;
+      --deep:#5A6BA0;
+      --deep-ink:#F2F3F9;
+      --border:#3B3428;
+      --danger:#D98787;
+      --danger-bg:#3A2422;
+      --success:#8FB393;
+    }
+  }
+  :root[data-theme="dark"]{
+    --bg:#191712;
+    --surface:#231F19;
+    --surface-alt:#2C271E;
+    --ink:#EDE7D9;
+    --ink-muted:#B0A78F;
+    --accent:#D2A24C;
+    --accent-ink:#241C0C;
+    --deep:#5A6BA0;
+    --deep-ink:#F2F3F9;
+    --border:#3B3428;
+    --danger:#D98787;
+    --danger-bg:#3A2422;
+    --success:#8FB393;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{
+    background:var(--bg);
+    color:var(--ink);
+    font-family:var(--font-body);
+    min-height:100vh;
+    -webkit-font-smoothing:antialiased;
+  }
+  a{color:var(--deep);}
+  button{font-family:inherit;}
+  ::selection{background:var(--accent); color:var(--accent-ink);}
+  :focus-visible{outline:2px solid var(--accent); outline-offset:2px;}
+
+  .app{display:flex; min-height:100vh;}
+
+  .mobile-topbar{display:none;}
+  .sidebar-backdrop{display:none;}
+  .desktop-sidebar-toggle{display:none;}
+
+  @media (min-width: 861px){
+    .sidebar{ transition:width .18s ease, min-width .18s ease, padding .18s ease, opacity .15s ease; overflow:hidden; }
+    .app.sidebar-collapsed .sidebar{ width:0; min-width:0; padding-left:0; padding-right:0; opacity:0; border-right:none; }
+    .desktop-sidebar-toggle{
+      display:flex; align-items:center; justify-content:center;
+      position:fixed; top:18px; left:18px; z-index:65;
+      width:34px; height:34px; border-radius:8px;
+      background:var(--surface); border:1px solid var(--border); color:var(--ink);
+      cursor:pointer; font-size:15px; box-shadow:0 2px 10px rgba(0,0,0,.14);
+      transition:left .18s ease;
+    }
+    .app:not(.sidebar-collapsed) .desktop-sidebar-toggle{ left:250px; }
+  }
+
+  @media (max-width: 860px){
+    .app{display:block;}
+    .mobile-topbar{
+      display:flex; align-items:center; gap:12px; padding:12px 16px;
+      background:var(--surface); border-bottom:1px solid var(--border);
+      position:sticky; top:0; z-index:40;
+    }
+    .menu-btn{background:none; border:1px solid var(--border); border-radius:8px; width:38px; height:38px; font-size:17px; color:var(--ink); cursor:pointer;}
+    .mobile-topbar-title{font-family:var(--font-display); font-weight:600; font-size:16px;}
+    .sidebar-backdrop{
+      display:block; position:fixed; inset:0; background:rgba(15,12,6,.45); z-index:55;
+      opacity:0; pointer-events:none; transition:opacity .18s;
+    }
+    .sidebar-backdrop.show{opacity:1; pointer-events:auto;}
+    .sidebar{
+      position:fixed; top:0; left:0; height:100vh; width:250px; z-index:60;
+      transform:translateX(-105%); transition:transform .2s ease;
+      box-shadow:0 12px 40px rgba(0,0,0,.35);
+    }
+    .sidebar.open{transform:translateX(0);}
+    main{padding:20px 16px 56px;}
+  }
+
+  /* Sidebar */
+  .sidebar{
+    width:232px; flex:none; background:var(--surface); border-right:1px solid var(--border);
+    display:flex; flex-direction:column; padding:22px 16px;
+  }
+  .brand{display:flex; align-items:center; gap:10px; padding:2px 6px 22px; border-bottom:1px solid var(--border); margin-bottom:14px;}
+  .brand-mark{width:34px; height:34px; flex:none;}
+  .brand-text{font-family:var(--font-display); font-size:18px; font-weight:600; line-height:1.15;}
+  .brand-sub{font-size:11px; color:var(--ink-muted); font-family:var(--font-mono); margin-top:2px;}
+
+  nav{display:flex; flex-direction:column; gap:2px;}
+  .nav-btn{
+    display:flex; align-items:center; gap:10px; text-align:left; background:none; border:none;
+    padding:10px 12px; border-radius:8px; color:var(--ink); font-size:14.5px; cursor:pointer;
+  }
+  .nav-btn:hover{background:var(--surface-alt);}
+  .nav-btn.active{background:var(--deep); color:var(--deep-ink);}
+  .nav-btn svg{width:17px; height:17px; flex:none;}
+  .nav-count{margin-left:auto; font-family:var(--font-mono); font-size:11px; color:var(--ink-muted);}
+  .nav-btn.active .nav-count{color:var(--deep-ink); opacity:.75;}
+
+  .sidebar-foot{margin-top:auto; padding-top:16px; font-size:11.5px; color:var(--ink-muted); line-height:1.5;}
+
+  /* Main */
+  main{flex:1; min-width:0; padding:32px 40px 60px;}
+  .view{display:none;}
+  .view.active{display:block;}
+  .view-head{margin-bottom:22px;}
+  .view-title{font-family:var(--font-display); font-size:26px; font-weight:600; margin:0 0 4px;}
+  .view-desc{color:var(--ink-muted); font-size:14px; margin:0; max-width:640px;}
+
+  .card{background:var(--surface); border:1px solid var(--border); border-radius:var(--radius); padding:22px;}
+  .card + .card{margin-top:16px;}
+
+  .btn{
+    font-size:13.5px; font-weight:600; border-radius:8px; padding:9px 16px; cursor:pointer;
+    border:1px solid var(--border); background:var(--surface); color:var(--ink);
+    display:inline-flex; align-items:center; gap:7px;
+  }
+  .btn:hover{background:var(--surface-alt);}
+  .btn-primary{background:var(--deep); color:var(--deep-ink); border-color:var(--deep);}
+  .btn-primary:hover{filter:brightness(1.08);}
+  .btn-accent{background:var(--accent); color:var(--accent-ink); border-color:var(--accent);}
+  .btn-accent:hover{filter:brightness(1.06);}
+  .btn-ghost{background:none; border-color:transparent;}
+  .btn-ghost:hover{background:var(--surface-alt);}
+  .btn-danger{color:var(--danger); border-color:var(--danger-bg); background:var(--danger-bg);}
+  .btn-sm{padding:6px 11px; font-size:12.5px;}
+  .btn[disabled]{opacity:.45; cursor:not-allowed;}
+  .btn-row{display:flex; gap:10px; flex-wrap:wrap;}
+
+  label{display:block; font-size:12.5px; font-weight:600; color:var(--ink-muted); margin-bottom:5px;}
+  input[type=text], input[type=number], input[type=date], input[type=tel], input[type=email], select, textarea{
+    width:100%; font-family:inherit; font-size:14px; color:var(--ink); background:var(--surface);
+    border:1px solid var(--border); border-radius:7px; padding:9px 11px;
+  }
+  textarea{resize:vertical; min-height:64px; line-height:1.5;}
+  input:focus, select:focus, textarea:focus{border-color:var(--accent);}
+  .field{margin-bottom:14px;}
+  .combo{position:relative;}
+  .combo-list{
+    position:absolute; top:100%; left:0; right:0; margin-top:4px;
+    background:var(--surface); border:1px solid var(--border); border-radius:8px;
+    max-height:230px; overflow-y:auto; z-index:30; display:none;
+    box-shadow:0 10px 28px rgba(0,0,0,.16);
+  }
+  .combo-list.show{display:block;}
+  .combo-item{padding:9px 12px; font-size:13.5px; cursor:pointer;}
+  .combo-item:hover, .combo-item.active{background:var(--surface-alt);}
+  .combo-empty{padding:9px 12px; font-size:13px; color:var(--ink-muted);}
+  .grid2{display:grid; grid-template-columns:1fr 1fr; gap:14px;}
+  .grid3{display:grid; grid-template-columns:1fr 1fr 1fr; gap:14px;}
+  @media (max-width: 760px){ .grid2, .grid3{grid-template-columns:1fr;} }
+  .hint{font-size:12px; color:var(--ink-muted); margin-top:4px;}
+  fieldset{border:none; padding:0; margin:0 0 18px;}
+  legend{font-family:var(--font-display); font-size:15px; font-weight:600; margin-bottom:10px; padding:0;}
+
+  table{width:100%; border-collapse:collapse; font-size:13.5px;}
+  th,td{text-align:left; padding:10px 8px; border-bottom:1px solid var(--border); vertical-align:top;}
+  th{color:var(--ink-muted); font-weight:600; font-size:11.5px; text-transform:uppercase; letter-spacing:.03em;}
+  tr:last-child td{border-bottom:none;}
+  .row-actions{display:flex; gap:6px; justify-content:flex-end;}
+  .empty{color:var(--ink-muted); font-size:13.5px; padding:18px 4px;}
+
+  .pill{display:inline-block; font-family:var(--font-mono); font-size:11.5px; background:var(--surface-alt); color:var(--ink-muted); padding:2px 8px; border-radius:20px;}
+
+  .two-col{display:grid; grid-template-columns:minmax(340px, 1fr) minmax(360px, 1.15fr); gap:22px; align-items:start;}
+  @media (max-width: 980px){ .two-col{grid-template-columns:1fr;} }
+
+  .preview-wrap{position:sticky; top:24px;}
+  .preview-shell{background:var(--surface-alt); border:1px solid var(--border); border-radius:var(--radius); padding:18px;}
+  .preview-actions{display:flex; gap:8px; flex-wrap:wrap; margin-bottom:14px;}
+  .doc-tabs{display:flex; gap:4px; margin-bottom:12px; background:var(--surface); border:1px solid var(--border); border-radius:8px; padding:3px;}
+  .doc-tab{flex:1; background:none; border:none; padding:8px 10px; font-size:13px; font-weight:600; color:var(--ink-muted); border-radius:6px; cursor:pointer;}
+  .doc-tab.active{background:var(--deep); color:var(--deep-ink);}
+  .paper-scroll{max-height:74vh; overflow:auto; border-radius:6px; box-shadow:0 6px 22px rgba(0,0,0,.16);}
+  .paper-empty{padding:60px 24px; text-align:center; color:var(--ink-muted); font-size:13.5px;}
+
+  .checkline{display:flex; align-items:flex-start; gap:8px; font-size:13.5px; color:var(--ink);}
+  .checkline input{width:auto; margin-top:3px;}
+
+  dialog{border:none; border-radius:var(--radius); padding:0; background:var(--surface); color:var(--ink); max-width:420px; width:92vw;}
+  dialog::backdrop{background:rgba(20,16,8,.45);}
+  .dialog-body{padding:20px;}
+  .dialog-title{font-family:var(--font-display); font-size:17px; font-weight:600; margin:0 0 10px;}
+
+  .toast{position:fixed; bottom:20px; right:20px; background:var(--deep); color:var(--deep-ink); padding:11px 16px; border-radius:8px; font-size:13.5px; box-shadow:0 8px 24px rgba(0,0,0,.25); z-index:80; opacity:0; transform:translateY(8px); transition:opacity .18s, transform .18s; pointer-events:none;}
+  .toast.show{opacity:1; transform:translateY(0);}
+
+  .banner{background:var(--danger-bg); color:var(--danger); border:1px solid var(--danger); border-radius:8px; padding:12px 14px; font-size:13.5px; margin-bottom:18px;}
+
+  @media print{
+    body *{visibility:hidden;}
+    #printArea, #printArea *{visibility:visible;}
+    #printArea{position:absolute; left:0; top:0; width:100%;}
+  }
+</style>
+</head>
+<body>
+<div class="app">
+
+  <div class="mobile-topbar">
+    <button class="menu-btn" id="menuToggle" aria-label="Open menu">☰</button>
+    <div class="mobile-topbar-title">Yarn Contract Desk</div>
+  </div>
+  <div class="sidebar-backdrop" id="sidebarBackdrop"></div>
+  <button class="desktop-sidebar-toggle" id="desktopSidebarToggle" title="Toggle menu">☰</button>
+
+  <aside class="sidebar" id="sidebar">
+    <div class="brand">
+      <svg class="brand-mark" viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <circle cx="20" cy="20" r="18" stroke="var(--accent)" stroke-width="2"/>
+        <path d="M9 15c6 3 6 7 0 10M15 9c3 6 7 6 10 0M31 15c-6 3-6 7 0 10M25 31c-3-6-7-6-10 0" stroke="var(--deep)" stroke-width="2" stroke-linecap="round"/>
+        <circle cx="20" cy="20" r="3.2" fill="var(--accent)"/>
+      </svg>
+      <div>
+        <div class="brand-text">Yarn Contract<br>Desk</div>
+        <div class="brand-sub">CONTRACT NOTES</div>
+      </div>
+    </div>
+    <nav>
+      <button class="nav-btn active" data-view="new">📄 New Contract</button>
+      <button class="nav-btn" data-view="sellers">🧵 Sellers <span class="nav-count" id="countSellers"></span></button>
+      <button class="nav-btn" data-view="buyers">🛒 Buyers <span class="nav-count" id="countBuyers"></span></button>
+      <button class="nav-btn" data-view="history">📚 Contract History <span class="nav-count" id="countHistory"></span></button>
+      <button class="nav-btn" data-view="company">🏷️ My Brokerage</button>
+    </nav>
+    <div class="sidebar-foot" id="dbStatus">Connecting…</div>
+  </aside>
+
+  <main>
+
+    <!-- NEW CONTRACT -->
+    <section class="view active" id="view-new">
+      <div class="view-head">
+        <h1 class="view-title">New Contract</h1>
+        <p class="view-desc">Pick the seller and buyer, fill in this deal's numbers, and the contract note is generated on the right — ready to print, or download as PDF or Word.</p>
+      </div>
+
+      <div class="two-col">
+        <div class="card">
+          <div id="noPartiesBanner" class="banner" style="display:none;">Add at least one seller and one buyer before you can generate a contract.</div>
+
+          <fieldset>
+            <legend>Parties</legend>
+            <div class="grid2">
+              <div class="field combo">
+                <label for="fSellerSearch">Seller</label>
+                <input type="text" id="fSellerSearch" autocomplete="off" placeholder="Type to search sellers…">
+                <input type="hidden" id="fSeller">
+                <div class="combo-list" id="fSellerList"></div>
+              </div>
+              <div class="field combo">
+                <label for="fBuyerSearch">Buyer</label>
+                <input type="text" id="fBuyerSearch" autocomplete="off" placeholder="Type to search buyers…">
+                <input type="hidden" id="fBuyer">
+                <div class="combo-list" id="fBuyerList"></div>
+              </div>
+            </div>
+          </fieldset>
+
+          <fieldset>
+            <legend>Deal terms</legend>
+            <div class="grid2">
+              <div class="field">
+                <label for="fContractNo">Reference No.</label>
+                <input type="text" id="fContractNo">
+                <div class="hint">Used as SC {ref} / PC {ref} on the two documents.</div>
+              </div>
+              <div class="field">
+                <label for="fDate">Contract Date</label>
+                <input type="date" id="fDate">
+              </div>
+            </div>
+            <div class="field">
+              <label for="fQuality">Quality / Specification</label>
+              <input type="text" id="fQuality" list="qualityList" autocomplete="off" placeholder="e.g. 36/1 PC 52:48 Carded Knitting">
+              <datalist id="qualityList"></datalist>
+              <div id="qualityChips"></div>
+            </div>
+            <div class="grid3">
+              <div class="field">
+                <label for="fQuantity">Quantity</label>
+                <input type="number" id="fQuantity" min="0" step="any">
+              </div>
+              <div class="field">
+                <label for="fUnit">Unit</label>
+                <select id="fUnit">
+                  <option>Bags</option><option>Kg</option><option>Bales</option>
+                  <option>Cones</option><option>Lbs</option><option>Metric Ton</option>
+                </select>
+              </div>
+              <div class="field">
+                <label for="fCurrency">Currency</label>
+                <select id="fCurrency"><option>PKR</option><option>USD</option></select>
+              </div>
+            </div>
+            <div class="grid2" id="bagWeightRow">
+              <div class="field">
+                <label for="fBagWeight">Weight per Bag</label>
+                <input type="number" id="fBagWeight" min="0" step="any">
+              </div>
+              <div class="field">
+                <label for="fBagWeightUnit">Bag Weight Unit</label>
+                <select id="fBagWeightUnit"><option value="lbs">Lbs</option><option value="kg">Kg</option></select>
+              </div>
+            </div>
+            <div class="grid2">
+              <div class="field">
+                <label for="fRate">Rate</label>
+                <input type="number" id="fRate" min="0" step="any">
+              </div>
+              <div class="field">
+                <label for="fRateBasis">Rate Is Per</label>
+                <select id="fRateBasis">
+                  <option value="10lbs">10 Lbs</option>
+                  <option value="kg">Kg</option>
+                  <option value="lbs">Lbs</option>
+                  <option value="maund">Maund</option>
+                  <option value="bag">Bag</option>
+                  <option value="bale">Bale</option>
+                  <option value="cone">Cone</option>
+                  <option value="mt">Metric Ton</option>
+                </select>
+              </div>
+            </div>
+            <div class="field">
+              <label class="checkline" style="margin-bottom:8px;"><input type="checkbox" id="fGst" checked> Add GST to total</label>
+              <div class="field" id="gstPctRow" style="max-width:160px; margin-bottom:0;">
+                <label for="fGstPct">GST %</label>
+                <input type="number" id="fGstPct" min="0" step="any" value="18">
+              </div>
+            </div>
+            <div class="field">
+              <label for="fTotal">Total Contract Value</label>
+              <input type="number" id="fTotal" min="0" step="any">
+              <div class="hint" id="totalHint">Auto-calculated from quantity, rate and GST — edit to override.</div>
+            </div>
+            <div class="field">
+              <label for="fCommission">Commission</label>
+              <select id="fCommission">
+                <option value="Nil">Nil</option>
+                <option value="0.5%">0.5%</option>
+                <option value="1%">1%</option>
+                <option value="__custom__">Custom…</option>
+              </select>
+              <input type="text" id="fCommissionCustom" placeholder="e.g. 2% or Rs. 5,000" style="margin-top:8px; display:none;">
+            </div>
+          </fieldset>
+
+          <fieldset>
+            <legend>Payment &amp; delivery</legend>
+            <div class="field">
+              <label for="fPayment">Payment Terms</label>
+              <textarea id="fPayment" placeholder="e.g. 50% advance with contract, balance against delivery"></textarea>
+            </div>
+            <div class="grid2">
+              <div class="field">
+                <label for="fDeliveryTerms">Delivery Terms</label>
+                <textarea id="fDeliveryTerms" placeholder="e.g. Ex-Mill, freight paid by buyer"></textarea>
+              </div>
+              <div class="field">
+                <label for="fDeliveryPeriod">Delivery Period</label>
+                <textarea id="fDeliveryPeriod" placeholder="e.g. Within 15 days of contract date"></textarea>
+              </div>
+            </div>
+          </fieldset>
+
+          <fieldset>
+            <legend>Standard clauses</legend>
+            <div class="field">
+              <label for="fPacking">Packing</label>
+              <textarea id="fPacking"></textarea>
+            </div>
+            <div class="field">
+              <label for="fWeighment">Weighment</label>
+              <textarea id="fWeighment"></textarea>
+            </div>
+            <div class="field">
+              <label for="fConditions">Terms &amp; Conditions</label>
+              <textarea id="fConditions" style="min-height:150px;"></textarea>
+            </div>
+            <div class="field">
+              <label for="fSpecial">Other Terms (optional)</label>
+              <textarea id="fSpecial" placeholder="Anything specific to this deal"></textarea>
+            </div>
+            <div class="field">
+              <label for="fRemarks">Remarks (optional)</label>
+              <textarea id="fRemarks"></textarea>
+            </div>
+          </fieldset>
+
+          <div class="btn-row">
+            <button class="btn btn-primary" id="btnGenerate">Generate Contract</button>
+            <button class="btn btn-ghost" id="btnClearForm">Clear form</button>
+          </div>
+        </div>
+
+        <div class="preview-wrap">
+          <div class="preview-shell">
+            <div class="preview-actions">
+              <button class="btn btn-accent btn-sm" id="btnSaveHistory" disabled>💾 Save to history</button>
+              <button class="btn btn-sm" id="btnPrint" disabled>🖨️ Print</button>
+              <button class="btn btn-sm" id="btnPdf" disabled>⬇ PDF</button>
+              <button class="btn btn-sm" id="btnDocx" disabled>⬇ Word</button>
+            </div>
+            <div class="doc-tabs" id="docTabs" style="display:none;">
+              <button class="doc-tab active" data-doc="sale" id="tabSale">Sales Contract</button>
+              <button class="doc-tab" data-doc="purchase" id="tabPurchase">Purchase Contract</button>
+            </div>
+            <div class="paper-scroll">
+              <div id="previewArea"><div class="paper-empty">Fill in the form and click <strong>Generate Contract</strong> to see it here.</div></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- SELLERS -->
+    <section class="view" id="view-sellers">
+      <div class="view-head">
+        <h1 class="view-title">Sellers</h1>
+        <p class="view-desc">Enter each seller's details once — pick them from a dropdown on every future contract.</p>
+      </div>
+      <div class="card">
+        <div class="btn-row" style="margin-bottom:14px;">
+          <button class="btn btn-primary" id="btnAddSeller">+ Add Seller</button>
+          <button class="btn" id="btnImportSellers">📥 Import from Excel</button>
+        </div>
+        <div id="sellerFormWrap" style="display:none; margin-bottom:18px;"></div>
+        <div id="sellersTableWrap"></div>
+      </div>
+    </section>
+
+    <!-- BUYERS -->
+    <section class="view" id="view-buyers">
+      <div class="view-head">
+        <h1 class="view-title">Buyers</h1>
+        <p class="view-desc">Same idea — save each buyer once, reuse on every contract.</p>
+      </div>
+      <div class="card">
+        <div class="btn-row" style="margin-bottom:14px;">
+          <button class="btn btn-primary" id="btnAddBuyer">+ Add Buyer</button>
+          <button class="btn" id="btnImportBuyers">📥 Import from Excel</button>
+        </div>
+        <div id="buyerFormWrap" style="display:none; margin-bottom:18px;"></div>
+        <div id="buyersTableWrap"></div>
+      </div>
+    </section>
+
+    <input type="file" id="importFile" accept=".xlsx,.xls,.csv" style="display:none;">
+
+    <!-- HISTORY -->
+    <section class="view" id="view-history">
+      <div class="view-head">
+        <h1 class="view-title">Contract History</h1>
+        <p class="view-desc">Every contract you've saved, newest first.</p>
+      </div>
+      <div class="card" style="margin-bottom:14px;">
+        <div class="grid3">
+          <div class="field" style="margin-bottom:0;">
+            <label for="histSearch">Search</label>
+            <input type="text" id="histSearch" placeholder="Ref no, seller, buyer, or quality">
+          </div>
+          <div class="field" style="margin-bottom:0;">
+            <label for="histFrom">From date</label>
+            <input type="date" id="histFrom">
+          </div>
+          <div class="field" style="margin-bottom:0;">
+            <label for="histTo">To date</label>
+            <input type="date" id="histTo">
+          </div>
+        </div>
+        <div class="btn-row" style="margin-top:12px;">
+          <button class="btn btn-ghost btn-sm" id="btnHistClear">Clear filters</button>
+        </div>
+      </div>
+      <div class="card">
+        <div class="hint" id="histCount" style="margin-bottom:10px;"></div>
+        <div id="historyTableWrap"></div>
+      </div>
+    </section>
+
+    <!-- COMPANY -->
+    <section class="view" id="view-company">
+      <div class="view-head">
+        <h1 class="view-title">My Brokerage</h1>
+        <p class="view-desc">Your own letterhead details and default clause wording — filled in once, used on every contract you generate.</p>
+      </div>
+      <div class="card">
+        <div class="grid2">
+          <div class="field">
+            <label for="cName">Brokerage / Firm Name</label>
+            <input type="text" id="cName">
+          </div>
+          <div class="field">
+            <label for="cLicense">Broker License / Membership No. (optional)</label>
+            <input type="text" id="cLicense">
+          </div>
+        </div>
+        <div class="field">
+          <label for="cAddress">Address</label>
+          <textarea id="cAddress"></textarea>
+        </div>
+        <div class="grid3">
+          <div class="field">
+            <label for="cPhone">Phone</label>
+            <input type="text" id="cPhone">
+          </div>
+          <div class="field">
+            <label for="cEmail">Email</label>
+            <input type="email" id="cEmail">
+          </div>
+          <div class="field">
+            <label for="cNtn">NTN (optional)</label>
+            <input type="text" id="cNtn">
+          </div>
+        </div>
+        <hr style="border:none; border-top:1px solid var(--border); margin:18px 0;">
+        <p class="hint" style="margin-bottom:12px;">These defaults pre-fill the "Standard clauses" section on every new contract — you can still edit them per deal.</p>
+        <div class="field">
+          <label for="cPacking">Default Packing clause</label>
+          <textarea id="cPacking"></textarea>
+        </div>
+        <div class="field">
+          <label for="cWeighment">Default Weighment clause</label>
+          <textarea id="cWeighment"></textarea>
+        </div>
+        <div class="field">
+          <label for="cConditions">Default Terms &amp; Conditions</label>
+          <textarea id="cConditions" style="min-height:150px;"></textarea>
+        </div>
+        <hr style="border:none; border-top:1px solid var(--border); margin:18px 0;">
+        <div class="field" style="max-width:280px;">
+          <label for="cStartRef">Starting Reference Number</label>
+          <input type="number" id="cStartRef" min="1" step="1" placeholder="e.g. 1001">
+          <div class="hint">New contracts auto-number from here. Only affects the very next number if you haven't saved any contracts yet — once you have history, numbering continues after your highest saved reference either way.</div>
+        </div>
+        <div class="btn-row">
+          <button class="btn btn-primary" id="btnSaveCompany">Save brokerage details</button>
+        </div>
+      </div>
+    </section>
+
+  </main>
+</div>
+
+<dialog id="confirmDialog">
+  <div class="dialog-body">
+    <p class="dialog-title" id="confirmTitle">Are you sure?</p>
+    <p id="confirmMsg" style="font-size:13.5px; color:var(--ink-muted);"></p>
+    <div class="btn-row" style="margin-top:14px; justify-content:flex-end;">
+      <button class="btn btn-ghost" id="confirmCancel">Cancel</button>
+      <button class="btn btn-danger" id="confirmOk">Delete</button>
+    </div>
+  </div>
+</dialog>
+
+<div class="toast" id="toast"></div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/html-docx-js@0.4.0/dist/html-docx.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+
+<script>
+/* ---------------------------------------------------------------------
+   Standalone backend shim.
+   Reproduces the same db.collection()/db.doc() and downloads.save()
+   interface the app was originally written against, but backed by our
+   own /api routes (Upstash Redis) instead of Claude's runtime capabilities.
+   Other users' changes show up within POLL_MS of being saved.
+--------------------------------------------------------------------- */
+(function(){
+  "use strict";
+  const POLL_MS = 7000;
+
+  function makeCollection(name){
+    let listeners = [];
+    let polling = null;
+    async function fetchAll(){
+      const res = await fetch("/api/" + name);
+      if(!res.ok) throw new Error("Request failed: " + res.status);
+      const arr = await res.json();
+      const snap = { docs: arr.map(item => ({ id: item.id, data: () => item })) };
+      listeners.forEach(cb => cb(snap));
+    }
+    return {
+      onSnapshot(cb, errCb){
+        listeners.push(cb);
+        fetchAll().catch(e => errCb && errCb(e));
+        if(!polling) polling = setInterval(() => fetchAll().catch(()=>{}), POLL_MS);
+      },
+      async add(data){
+        const res = await fetch("/api/" + name, { method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify(data) });
+        if(!res.ok) throw new Error("Save failed");
+        const created = await res.json();
+        await fetchAll();
+        return { id: created.id };
+      },
+      doc(id){
+        return {
+          async set(data){
+            const res = await fetch("/api/" + name + "/" + encodeURIComponent(id), { method:"PUT", headers:{"Content-Type":"application/json"}, body: JSON.stringify(data) });
+            if(!res.ok) throw new Error("Save failed");
+            await fetchAll();
+          },
+          async delete(){
+            const res = await fetch("/api/" + name + "/" + encodeURIComponent(id), { method:"DELETE" });
+            if(!res.ok) throw new Error("Delete failed");
+            await fetchAll();
+          }
+        };
+      }
+    };
+  }
+
+  function makeCompanyDoc(){
+    let listeners = [];
+    let polling = null;
+    async function fetchIt(){
+      const res = await fetch("/api/company");
+      if(!res.ok) throw new Error("Request failed: " + res.status);
+      const data = await res.json();
+      const exists = !!(data && Object.keys(data).length);
+      listeners.forEach(cb => cb({ exists, data: () => data }));
+    }
+    return {
+      onSnapshot(cb, errCb){
+        listeners.push(cb);
+        fetchIt().catch(e => errCb && errCb(e));
+        if(!polling) polling = setInterval(() => fetchIt().catch(()=>{}), POLL_MS);
+      },
+      async set(data){
+        const res = await fetch("/api/company", { method:"PUT", headers:{"Content-Type":"application/json"}, body: JSON.stringify(data) });
+        if(!res.ok) throw new Error("Save failed");
+        await fetchIt();
+      }
+    };
+  }
+
+  window.__dbShim = {
+    collection(name){ return makeCollection(name); },
+    doc(path){
+      if(path === "company/profile") return makeCompanyDoc();
+      throw new Error("Unsupported doc path: " + path);
+    }
+  };
+
+  window.__downloadsShim = {
+    async save({ filename, data }){
+      const blob = data instanceof Blob ? data : new Blob([data]);
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url; a.download = filename;
+      document.body.appendChild(a); a.click(); document.body.removeChild(a);
+      setTimeout(() => URL.revokeObjectURL(url), 4000);
+      return { status: "ok" };
+    }
+  };
+})();
+</script>
+
+<script>
+(function(){
+  "use strict";
+
+  // ---------- state ----------
+  let db = null, downloads = null;
+  let company = {};
+  let sellers = [];
+  let buyers = [];
+  let contracts = [];
+  let qualities = [];
+  let editingSellerId = null, editingBuyerId = null;
+  let currentContract = null;
+  let activeDocType = "sale";
+  let editingContractId = null;
+  let editingCreatedAt = null;
+  let totalManual = false;
+  let pendingDelete = null;
+
+  const LBS_PER_KG = 2.2046226218;
+  const KG_PER_MAUND = 37.3242;
+
+  const DEFAULTS = {
+    packing: "Goods shall be packed in standard export-quality HDPE bags / cartons, as customary for the trade, with net and gross weight marked on each package.",
+    weighment: "Weighment at the seller's mill/godown shall be final and binding, subject to the quality claim period stated below.",
+    conditions: "1. A sample is to be tested and approved for quality before bulk production; no claim will be accepted thereafter.\n2. In case of a quality issue, the seller's liability is limited to replacement of unopened bags. Once a bag is opened and the yarn used, no claim or replacement will apply.\n3. This contract is subject to force majeure and applicable taxes as levied by the Government of Pakistan from time to time.\n4. A mark-up will be charged on delayed payments at the prevailing market rate (indicatively 3% per month).\n5. All payments against this sale are to be made directly to the seller.\n6. Delivery will be made after clearance of any overdue payments, if any.\n7. A copy of this contract, duly signed and stamped, must be returned before delivery of goods."
+  };
+
+  // Pre-fills "My Brokerage" the first time it's opened, from the letterhead you shared — edit and save to make it permanent.
+  const COMPANY_SEED = {
+    name: "Inzy International",
+    address: "C 305 - 3rd Floor, City Tower, 6-K Main Boulevard, Gulberg-II, Lahore, Pakistan",
+    phone: "+92-42-35770073-76",
+    email: "nouman@inzy.com.pk",
+    ntn: "1366846-3"
+  };
+
+  // ---------- helpers ----------
+  const $ = (id) => document.getElementById(id);
+  function esc(s){ return String(s==null?"":s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;"); }
+  function nl2br(s){ return esc(s).replace(/\n/g,"<br>"); }
+  function money(n){ const v = Number(n); if(isNaN(v)) return "0"; return v.toLocaleString("en-PK", {maximumFractionDigits:2}); }
+  function todayISO(){ const d = new Date(); return d.toISOString().slice(0,10); }
+  function fmtDate(iso){
+    if(!iso) return "";
+    const d = new Date(iso+"T00:00:00");
+    if(isNaN(d)) return iso;
+    return d.toLocaleDateString("en-GB", {day:"2-digit", month:"short", year:"numeric"});
+  }
+  function toast(msg){
+    const t = $("toast"); t.textContent = msg; t.classList.add("show");
+    clearTimeout(toast._h); toast._h = setTimeout(()=>t.classList.remove("show"), 2400);
+  }
+  function confirmDialog(title, msg){
+    return new Promise((resolve)=>{
+      $("confirmTitle").textContent = title;
+      $("confirmMsg").textContent = msg;
+      const dlg = $("confirmDialog");
+      dlg.showModal();
+      const ok = $("confirmOk"), cancel = $("confirmCancel");
+      function cleanup(v){ dlg.close(); ok.removeEventListener("click", onOk); cancel.removeEventListener("click", onCancel); resolve(v); }
+      function onOk(){ cleanup(true); }
+      function onCancel(){ cleanup(false); }
+      ok.addEventListener("click", onOk);
+      cancel.addEventListener("click", onCancel);
+    });
+  }
+
+  // ---------- nav ----------
+  function closeSidebar(){
+    $("sidebar").classList.remove("open");
+    $("sidebarBackdrop").classList.remove("show");
+  }
+  $("menuToggle").addEventListener("click", ()=>{
+    $("sidebar").classList.add("open");
+    $("sidebarBackdrop").classList.add("show");
+  });
+  $("sidebarBackdrop").addEventListener("click", closeSidebar);
+  $("desktopSidebarToggle").addEventListener("click", ()=>{
+    document.querySelector(".app").classList.toggle("sidebar-collapsed");
+  });
+
+  document.querySelectorAll(".nav-btn").forEach(btn=>{
+    btn.addEventListener("click", ()=>{
+      document.querySelectorAll(".nav-btn").forEach(b=>b.classList.remove("active"));
+      document.querySelectorAll(".view").forEach(v=>v.classList.remove("active"));
+      btn.classList.add("active");
+      $("view-"+btn.dataset.view).classList.add("active");
+      closeSidebar();
+    });
+  });
+
+  // ---------- init capabilities ----------
+  async function init(){
+    try{
+      db = window.__dbShim;
+    }catch(e){ db = null; }
+    try{
+      downloads = window.__downloadsShim;
+    }catch(e){ downloads = null; }
+
+    applyInitialFormDefaults();
+
+    if(!db){
+      $("dbStatus").textContent = "Shared storage isn't available in this view — data won't be saved.";
+      fillCompanyForm();
+      applyCompanyDefaultsToForm();
+      return;
+    }
+    $("dbStatus").textContent = "Synced with your team.";
+    subscribeCompany();
+    subscribeSellers();
+    subscribeBuyers();
+    subscribeContracts();
+    subscribeQualities();
+  }
+
+  function subscribeQualities(){
+    db.collection("qualities").onSnapshot((qs)=>{
+      qualities = qs.docs.map(d=>({id:d.id, ...d.data()})).sort((a,b)=>(a.name||"").localeCompare(b.name||""));
+      $("qualityList").innerHTML = qualities.map(q=>`<option value="${esc(q.name)}">`).join("");
+      renderQualityChips();
+    }, (err)=>{ console.error("qualities sub error", err); });
+  }
+
+  function renderQualityChips(){
+    const wrap = $("qualityChips");
+    if(!qualities.length){ wrap.innerHTML = ""; return; }
+    wrap.innerHTML = `<div class="hint" style="margin-bottom:5px;">Saved qualities — click to use, or delete:</div>` +
+      qualities.map(q=>`<span class="pill" style="margin:0 6px 6px 0; cursor:pointer;" data-use-quality="${esc(q.name)}">${esc(q.name)} <span data-del-quality="${q.id}" style="color:var(--danger); margin-left:4px;" title="Remove">&times;</span></span>`).join("");
+    wrap.querySelectorAll("[data-use-quality]").forEach(el=>{
+      el.addEventListener("click", (e)=>{
+        if(e.target.dataset.delQuality) return;
+        $("fQuality").value = el.dataset.useQuality;
+      });
+    });
+    wrap.querySelectorAll("[data-del-quality]").forEach(el=>{
+      el.addEventListener("click", async (e)=>{
+        e.stopPropagation();
+        try{ await db.collection("qualities").doc(el.dataset.delQuality).delete(); }
+        catch(err){ console.error(err); toast("Couldn't remove."); }
+      });
+    });
+  }
+
+  async function maybeSaveQuality(name){
+    if(!db || !name) return;
+    const exists = qualities.some(q=>(q.name||"").trim().toLowerCase() === name.trim().toLowerCase());
+    if(exists) return;
+    try{ await db.collection("qualities").add({name: name.trim()}); }
+    catch(e){ console.error(e); }
+  }
+
+  function subscribeCompany(){
+    db.doc("company/profile").onSnapshot((snap)=>{
+      company = snap.exists ? (snap.data()||{}) : {};
+      fillCompanyForm();
+      applyCompanyDefaultsToForm();
+    }, (err)=>{ console.error("company sub error", err); });
+  }
+
+  function subscribeSellers(){
+    db.collection("sellers").onSnapshot((qs)=>{
+      sellers = qs.docs.map(d=>({id:d.id, ...d.data()})).sort((a,b)=>(a.name||"").localeCompare(b.name||""));
+      $("countSellers").textContent = sellers.length || "";
+      renderSellers();
+      syncComboDisplay("Seller");
+      updatePartiesBanner();
+    }, (err)=>{ console.error("sellers sub error", err); });
+  }
+
+  function subscribeBuyers(){
+    db.collection("buyers").onSnapshot((qs)=>{
+      buyers = qs.docs.map(d=>({id:d.id, ...d.data()})).sort((a,b)=>(a.name||"").localeCompare(b.name||""));
+      $("countBuyers").textContent = buyers.length || "";
+      renderBuyers();
+      syncComboDisplay("Buyer");
+      updatePartiesBanner();
+    }, (err)=>{ console.error("buyers sub error", err); });
+  }
+
+  function subscribeContracts(){
+    db.collection("contracts").onSnapshot((qs)=>{
+      contracts = qs.docs.map(d=>({id:d.id, ...d.data()}));
+      contracts.sort((a,b)=>(b.createdAt||0)-(a.createdAt||0));
+      $("countHistory").textContent = contracts.length || "";
+      renderHistory();
+      refreshContractNoIfAuto();
+    }, (err)=>{ console.error("contracts sub error", err); });
+  }
+
+  function updatePartiesBanner(){
+    $("noPartiesBanner").style.display = (sellers.length===0 || buyers.length===0) ? "block" : "none";
+  }
+
+  // ---------- Seller / Buyer type-to-search combo boxes ----------
+  function comboItems(kind){ return kind === "Seller" ? sellers : buyers; }
+
+  function renderComboList(kind){
+    const items = comboItems(kind);
+    const q = $("f"+kind+"Search").value.trim().toLowerCase();
+    const matches = q ? items.filter(it => (it.name||"").toLowerCase().includes(q)) : items;
+    const listEl = $("f"+kind+"List");
+    if(matches.length === 0){
+      listEl.innerHTML = `<div class="combo-empty">${items.length===0 ? `No ${kind.toLowerCase()}s saved yet — add one on the ${kind}s page.` : "No matches."}</div>`;
+    }else{
+      listEl.innerHTML = matches.map(it=>`<div class="combo-item" data-id="${it.id}">${esc(it.name||"(unnamed)")}</div>`).join("");
+      listEl.querySelectorAll("[data-id]").forEach(el=>{
+        el.addEventListener("mousedown", (e)=>{
+          e.preventDefault(); // keep focus so the blur handler doesn't fire before we set the value
+          selectComboItem(kind, el.dataset.id);
+        });
+      });
+    }
+    listEl.classList.add("show");
+  }
+
+  function selectComboItem(kind, id){
+    const item = comboItems(kind).find(it=>it.id===id);
+    $("f"+kind).value = id || "";
+    $("f"+kind+"Search").value = item ? (item.name||"") : "";
+    $("f"+kind+"List").classList.remove("show");
+  }
+
+  // Called when the sellers/buyers list refreshes — keeps a picked name in sync (e.g. after a rename).
+  function syncComboDisplay(kind){
+    const id = $("f"+kind).value;
+    if(!id) return;
+    const item = comboItems(kind).find(it=>it.id===id);
+    if(item) $("f"+kind+"Search").value = item.name || "";
+  }
+
+  ["Seller","Buyer"].forEach(kind=>{
+    const search = $("f"+kind+"Search");
+    search.addEventListener("focus", ()=>renderComboList(kind));
+    search.addEventListener("input", ()=>{
+      $("f"+kind).value = ""; // typing invalidates the previous pick until they choose again
+      renderComboList(kind);
+    });
+    search.addEventListener("blur", ()=>{
+      setTimeout(()=>{
+        $("f"+kind+"List").classList.remove("show");
+        // If what's typed exactly matches a saved name, resolve it automatically.
+        if(!$("f"+kind).value){
+          const typed = search.value.trim().toLowerCase();
+          const match = typed && comboItems(kind).find(it=>(it.name||"").toLowerCase() === typed);
+          if(match) selectComboItem(kind, match.id);
+          else search.value = "";
+        }
+      }, 150);
+    });
+  });
+
+
+  // ---------- Company view ----------
+  function fillCompanyForm(){
+    $("cName").value = company.name || COMPANY_SEED.name;
+    $("cLicense").value = company.license || "";
+    $("cAddress").value = company.address || COMPANY_SEED.address;
+    $("cPhone").value = company.phone || COMPANY_SEED.phone;
+    $("cEmail").value = company.email || COMPANY_SEED.email;
+    $("cNtn").value = company.ntn || COMPANY_SEED.ntn;
+    $("cPacking").value = company.packing || DEFAULTS.packing;
+    $("cWeighment").value = company.weighment || DEFAULTS.weighment;
+    $("cConditions").value = company.conditions || DEFAULTS.conditions;
+    $("cStartRef").value = company.startingRef || "";
+  }
+
+  $("btnSaveCompany").addEventListener("click", async ()=>{
+    if(!db) return toast("Shared storage isn't available here.");
+    const data = {
+      name: $("cName").value.trim(),
+      license: $("cLicense").value.trim(),
+      address: $("cAddress").value.trim(),
+      phone: $("cPhone").value.trim(),
+      email: $("cEmail").value.trim(),
+      ntn: $("cNtn").value.trim(),
+      packing: $("cPacking").value.trim(),
+      weighment: $("cWeighment").value.trim(),
+      conditions: $("cConditions").value.trim(),
+      startingRef: $("cStartRef").value.trim() ? Number($("cStartRef").value.trim()) : null,
+    };
+    try{
+      await db.doc("company/profile").set(data);
+      toast("Brokerage details saved.");
+      refreshContractNoIfAuto();
+    }catch(e){ console.error(e); toast("Couldn't save — try again."); }
+  });
+
+  // Called once, on load: fields that should only ever be set one time per form use.
+  function applyInitialFormDefaults(){
+    if(!$("fDate").value) $("fDate").value = todayISO();
+    refreshContractNoIfAuto();
+    if(!$("fCurrency").value) $("fCurrency").value = "PKR";
+    if(!$("fUnit").value) $("fUnit").value = "Bags";
+    if(!$("fRateBasis").value) $("fRateBasis").value = "10lbs";
+    if(!$("fBagWeight").value) $("fBagWeight").value = "100";
+    $("fGst").checked = true;
+    if(!$("fGstPct").value) $("fGstPct").value = "18";
+    toggleBagWeightRow();
+    toggleGstPctRow();
+  }
+
+  // Called whenever the company profile (re)loads: only touches fields still at their default/empty state.
+  function applyCompanyDefaultsToForm(){
+    if(!$("fPacking").value) $("fPacking").value = company.packing || DEFAULTS.packing;
+    if(!$("fWeighment").value) $("fWeighment").value = company.weighment || DEFAULTS.weighment;
+    if(!$("fConditions").value) $("fConditions").value = company.conditions || DEFAULTS.conditions;
+    refreshContractNoIfAuto();
+  }
+
+  // The Reference No. field auto-tracks the next available number until the person types their own.
+  let contractNoAuto = true;
+  $("fContractNo").addEventListener("input", ()=>{ contractNoAuto = false; });
+  function refreshContractNoIfAuto(){
+    if(contractNoAuto) $("fContractNo").value = nextContractNo();
+  }
+
+  function nextContractNo(){
+    const start = Number(company.startingRef) || 1001;
+    let max = start - 1;
+    contracts.forEach(c=>{
+      const n = parseInt((c.ref||"").toString().replace(/[^0-9]/g,""), 10);
+      if(!isNaN(n) && n > max) max = n;
+    });
+    return String(max + 1);
+  }
+
+  // ---------- Sellers CRUD ----------
+  function partyFormHTML(prefix, existing){
+    const v = existing || {};
+    return `
+      <div class="card" style="background:var(--surface-alt);">
+        <div class="grid2">
+          <div class="field"><label>Name</label><input type="text" id="${prefix}Name" value="${esc(v.name)}"></div>
+          <div class="field"><label>Contact Person (optional)</label><input type="text" id="${prefix}Contact" value="${esc(v.contact)}"></div>
+        </div>
+        <div class="field"><label>Address</label><textarea id="${prefix}Address">${esc(v.address)}</textarea></div>
+        <div class="grid3">
+          <div class="field"><label>Phone</label><input type="text" id="${prefix}Phone" value="${esc(v.phone)}"></div>
+          <div class="field"><label>CNIC / NTN</label><input type="text" id="${prefix}Cnic" value="${esc(v.cnic)}"></div>
+          <div class="field"><label>Bank Details (optional)</label><input type="text" id="${prefix}Bank" value="${esc(v.bank)}"></div>
+        </div>
+        <div class="btn-row">
+          <button class="btn btn-primary" id="${prefix}Save">${existing ? "Save changes" : "Add"}</button>
+          <button class="btn btn-ghost" id="${prefix}Cancel">Cancel</button>
+        </div>
+      </div>`;
+  }
+
+  function readPartyForm(prefix){
+    return {
+      name: $(prefix+"Name").value.trim(),
+      contact: $(prefix+"Contact").value.trim(),
+      address: $(prefix+"Address").value.trim(),
+      phone: $(prefix+"Phone").value.trim(),
+      cnic: $(prefix+"Cnic").value.trim(),
+      bank: $(prefix+"Bank").value.trim(),
+    };
+  }
+
+  $("btnAddSeller").addEventListener("click", ()=>{
+    editingSellerId = null;
+    $("sellerFormWrap").innerHTML = partyFormHTML("s", null);
+    $("sellerFormWrap").style.display = "block";
+    wireSellerForm();
+    $("sSName").focus();
+  });
+
+  function wireSellerForm(){
+    $("sSave").addEventListener("click", async ()=>{
+      const data = readPartyForm("s");
+      if(!data.name) return toast("Seller name is required.");
+      if(!db) return toast("Shared storage isn't available here.");
+      try{
+        if(editingSellerId) await db.collection("sellers").doc(editingSellerId).set(data);
+        else await db.collection("sellers").add(data);
+        $("sellerFormWrap").style.display = "none";
+        toast("Seller saved.");
+      }catch(e){ console.error(e); toast("Couldn't save seller."); }
+    });
+    $("sCancel").addEventListener("click", ()=>{ $("sellerFormWrap").style.display = "none"; });
+  }
+
+  function renderSellers(){
+    if(sellers.length===0){
+      $("sellersTableWrap").innerHTML = `<div class="empty">No sellers yet — add your first one above.</div>`;
+      return;
+    }
+    $("sellersTableWrap").innerHTML = `<table><thead><tr><th>Name</th><th>Contact</th><th>Phone</th><th>CNIC/NTN</th><th></th></tr></thead><tbody>
+      ${sellers.map(s=>`<tr>
+        <td>${esc(s.name)}</td>
+        <td>${esc(s.contact)||"—"}</td>
+        <td>${esc(s.phone)||"—"}</td>
+        <td>${esc(s.cnic)||"—"}</td>
+        <td><div class="row-actions">
+          <button class="btn btn-sm btn-ghost" data-edit-seller="${s.id}">Edit</button>
+          <button class="btn btn-sm btn-danger" data-del-seller="${s.id}">Delete</button>
+        </div></td>
+      </tr>`).join("")}
+      </tbody></table>`;
+    $("sellersTableWrap").querySelectorAll("[data-edit-seller]").forEach(b=>{
+      b.addEventListener("click", ()=>{
+        const s = sellers.find(x=>x.id===b.dataset.editSeller);
+        editingSellerId = s.id;
+        $("sellerFormWrap").innerHTML = partyFormHTML("s", s);
+        $("sellerFormWrap").style.display = "block";
+        wireSellerForm();
+        $("sellerFormWrap").scrollIntoView({behavior:"smooth", block:"center"});
+      });
+    });
+    $("sellersTableWrap").querySelectorAll("[data-del-seller]").forEach(b=>{
+      b.addEventListener("click", async ()=>{
+        const s = sellers.find(x=>x.id===b.dataset.delSeller);
+        const ok = await confirmDialog("Delete seller?", `Remove "${s.name}" from your saved sellers. This doesn't affect contracts already saved to history.`);
+        if(!ok) return;
+        try{ await db.collection("sellers").doc(s.id).delete(); toast("Seller deleted."); }
+        catch(e){ console.error(e); toast("Couldn't delete."); }
+      });
+    });
+  }
+
+  // ---------- Buyers CRUD ----------
+  $("btnAddBuyer").addEventListener("click", ()=>{
+    editingBuyerId = null;
+    $("buyerFormWrap").innerHTML = partyFormHTML("b", null);
+    $("buyerFormWrap").style.display = "block";
+    wireBuyerForm();
+    $("bName").focus();
+  });
+
+  function wireBuyerForm(){
+    $("bSave").addEventListener("click", async ()=>{
+      const data = readPartyForm("b");
+      if(!data.name) return toast("Buyer name is required.");
+      if(!db) return toast("Shared storage isn't available here.");
+      try{
+        if(editingBuyerId) await db.collection("buyers").doc(editingBuyerId).set(data);
+        else await db.collection("buyers").add(data);
+        $("buyerFormWrap").style.display = "none";
+        toast("Buyer saved.");
+      }catch(e){ console.error(e); toast("Couldn't save buyer."); }
+    });
+    $("bCancel").addEventListener("click", ()=>{ $("buyerFormWrap").style.display = "none"; });
+  }
+
+  function renderBuyers(){
+    if(buyers.length===0){
+      $("buyersTableWrap").innerHTML = `<div class="empty">No buyers yet — add your first one above.</div>`;
+      return;
+    }
+    $("buyersTableWrap").innerHTML = `<table><thead><tr><th>Name</th><th>Contact</th><th>Phone</th><th>CNIC/NTN</th><th></th></tr></thead><tbody>
+      ${buyers.map(s=>`<tr>
+        <td>${esc(s.name)}</td>
+        <td>${esc(s.contact)||"—"}</td>
+        <td>${esc(s.phone)||"—"}</td>
+        <td>${esc(s.cnic)||"—"}</td>
+        <td><div class="row-actions">
+          <button class="btn btn-sm btn-ghost" data-edit-buyer="${s.id}">Edit</button>
+          <button class="btn btn-sm btn-danger" data-del-buyer="${s.id}">Delete</button>
+        </div></td>
+      </tr>`).join("")}
+      </tbody></table>`;
+    $("buyersTableWrap").querySelectorAll("[data-edit-buyer]").forEach(b=>{
+      b.addEventListener("click", ()=>{
+        const s = buyers.find(x=>x.id===b.dataset.editBuyer);
+        editingBuyerId = s.id;
+        $("buyerFormWrap").innerHTML = partyFormHTML("b", s);
+        $("buyerFormWrap").style.display = "block";
+        wireBuyerForm();
+        $("buyerFormWrap").scrollIntoView({behavior:"smooth", block:"center"});
+      });
+    });
+    $("buyersTableWrap").querySelectorAll("[data-del-buyer]").forEach(b=>{
+      b.addEventListener("click", async ()=>{
+        const s = buyers.find(x=>x.id===b.dataset.delBuyer);
+        const ok = await confirmDialog("Delete buyer?", `Remove "${s.name}" from your saved buyers. This doesn't affect contracts already saved to history.`);
+        if(!ok) return;
+        try{ await db.collection("buyers").doc(s.id).delete(); toast("Buyer deleted."); }
+        catch(e){ console.error(e); toast("Couldn't delete."); }
+      });
+    });
+  }
+
+  // ---------- bulk import (Excel/CSV) ----------
+  const IMPORT_HEADER_MAP = {
+    name:"name", contactperson:"contact", contact:"contact",
+    address:"address", phone:"phone",
+    cnicntn:"cnic", cnic:"cnic", ntn:"cnic",
+    bankdetails:"bank", bank:"bank"
+  };
+  function normHeader(h){ return String(h||"").trim().toLowerCase().replace(/[^a-z]/g,""); }
+
+  function rowsFromSheet(sheet){
+    const raw = XLSX.utils.sheet_to_json(sheet, {defval:""});
+    return raw.map(row=>{
+      const out = {};
+      Object.keys(row).forEach(key=>{
+        const field = IMPORT_HEADER_MAP[normHeader(key)];
+        if(field) out[field] = String(row[key]||"").trim();
+      });
+      return out;
+    }).filter(r => r.name && !/^example\b/i.test(r.name));
+  }
+
+  function findSheet(wb, kind){
+    const name = wb.SheetNames.find(n => n.toLowerCase().includes(kind));
+    return name ? wb.Sheets[name] : null;
+  }
+
+  async function importPartyRows(collectionName, existingList, rows){
+    let added = 0, skipped = 0;
+    for(const r of rows){
+      const dup = existingList.some(e => (e.name||"").trim().toLowerCase() === r.name.trim().toLowerCase());
+      if(dup){ skipped++; continue; }
+      try{
+        await db.collection(collectionName).add({
+          name: r.name||"", contact: r.contact||"", address: r.address||"",
+          phone: r.phone||"", cnic: r.cnic||"", bank: r.bank||""
+        });
+        added++;
+      }catch(e){ console.error(e); }
+    }
+    return {added, skipped};
+  }
+
+  async function handleImportFile(file){
+    if(!window.XLSX){ toast("Import library didn't load."); return; }
+    if(!db){ toast("Shared storage isn't available here."); return; }
+    let wb;
+    try{
+      const buf = await file.arrayBuffer();
+      wb = XLSX.read(buf, {type:"array"});
+    }catch(e){ console.error(e); toast("Couldn't read that file."); return; }
+
+    const sellerSheet = findSheet(wb, "seller");
+    const buyerSheet = findSheet(wb, "buyer");
+    if(!sellerSheet && !buyerSheet){
+      toast('No "Sellers" or "Buyers" sheet found in that file.');
+      return;
+    }
+
+    let msg = [];
+    if(sellerSheet){
+      const rows = rowsFromSheet(sellerSheet);
+      const r = await importPartyRows("sellers", sellers, rows);
+      msg.push(`${r.added} seller${r.added===1?"":"s"} added${r.skipped?`, ${r.skipped} skipped (already existed)`:""}`);
+    }
+    if(buyerSheet){
+      const rows = rowsFromSheet(buyerSheet);
+      const r = await importPartyRows("buyers", buyers, rows);
+      msg.push(`${r.added} buyer${r.added===1?"":"s"} added${r.skipped?`, ${r.skipped} skipped (already existed)`:""}`);
+    }
+    toast(msg.join(" · ") || "Nothing to import.");
+  }
+
+  $("btnImportSellers").addEventListener("click", ()=>$("importFile").click());
+  $("btnImportBuyers").addEventListener("click", ()=>$("importFile").click());
+  $("importFile").addEventListener("change", async (e)=>{
+    const file = e.target.files[0];
+    e.target.value = "";
+    if(file) await handleImportFile(file);
+  });
+
+  // ---------- amount auto-calc ----------
+  function bagWeightApplies(){
+    return $("fUnit").value === "Bags" && $("fRateBasis").value !== "bag";
+  }
+  function toggleBagWeightRow(){
+    $("bagWeightRow").style.display = bagWeightApplies() ? "grid" : "none";
+  }
+  function toggleGstPctRow(){
+    $("gstPctRow").style.display = $("fGst").checked ? "block" : "none";
+  }
+
+  function computeBaseAmount(){
+    const qty = Number($("fQuantity").value) || 0;
+    const rate = Number($("fRate").value) || 0;
+    const unit = $("fUnit").value;
+    const basis = $("fRateBasis").value;
+    if(!qty || !rate) return null;
+
+    if(unit === "Bags"){
+      if(basis === "bag") return qty * rate;
+      const w = Number($("fBagWeight").value) || 0;
+      if(!w) return null;
+      const wUnit = $("fBagWeightUnit").value;
+      const totalKg = qty * (wUnit === "lbs" ? w / LBS_PER_KG : w);
+      if(basis === "kg") return totalKg * rate;
+      if(basis === "lbs") return (totalKg * LBS_PER_KG) * rate;
+      if(basis === "10lbs") return (totalKg * LBS_PER_KG / 10) * rate;
+      if(basis === "maund") return (totalKg / KG_PER_MAUND) * rate;
+      return null; // bale/cone/mt basis doesn't make sense against a bag quantity
+    }
+
+    const direct = {Kg:"kg", Lbs:"lbs", Bales:"bale", Cones:"cone", "Metric Ton":"mt"};
+    if(direct[unit] === basis) return qty * rate;
+    if(unit === "Kg" && basis === "10lbs") return (qty * LBS_PER_KG / 10) * rate;
+    if(unit === "Kg" && basis === "maund") return (qty / KG_PER_MAUND) * rate;
+    if(unit === "Lbs" && basis === "10lbs") return (qty / 10) * rate;
+    return null;
+  }
+
+  function recalcTotal(){
+    const base = computeBaseAmount();
+    const gstOn = $("fGst").checked;
+    const gstPct = Number($("fGstPct").value) || 0;
+    if(base == null){
+      $("totalHint").textContent = "Couldn't auto-calculate from these units — enter the total manually.";
+      return;
+    }
+    const total = gstOn ? base * (1 + gstPct/100) : base;
+    $("totalHint").textContent = gstOn
+      ? `Base ${money(base)} + ${gstPct}% GST = ${money(total)} — edit the field to override.`
+      : `Base amount, no GST added — edit the field to override.`;
+    if(totalManual) return;
+    $("fTotal").value = total ? String(Math.round(total*100)/100) : "";
+  }
+  ["fQuantity","fRate","fBagWeight"].forEach(id=>$(id).addEventListener("input", recalcTotal));
+  ["fUnit","fRateBasis","fBagWeightUnit"].forEach(id=>$(id).addEventListener("change", ()=>{ toggleBagWeightRow(); recalcTotal(); }));
+  $("fGst").addEventListener("change", ()=>{ toggleGstPctRow(); recalcTotal(); });
+  $("fGstPct").addEventListener("input", recalcTotal);
+  $("fTotal").addEventListener("input", ()=>{ totalManual = true; });
+  $("fCommission").addEventListener("change", ()=>{
+    $("fCommissionCustom").style.display = $("fCommission").value === "__custom__" ? "block" : "none";
+  });
+
+  // ---------- generate contract ----------
+  function doGenerate(opts){
+    opts = opts || {};
+    const sellerId = $("fSeller").value, buyerId = $("fBuyer").value;
+    const seller = sellers.find(s=>s.id===sellerId);
+    const buyer = buyers.find(b=>b.id===buyerId);
+    if(!seller){ toast("Please select a seller."); return false; }
+    if(!buyer){ toast("Please select a buyer."); return false; }
+    if(!$("fQuality").value.trim()){ toast("Please describe the quality/specification."); return false; }
+    if(!$("fQuantity").value || !$("fRate").value){ toast("Please enter quantity and rate."); return false; }
+
+    const commissionVal = $("fCommission").value === "__custom__" ? $("fCommissionCustom").value.trim() : $("fCommission").value;
+
+    const data = {
+      ref: $("fContractNo").value.trim() || nextContractNo(),
+      date: $("fDate").value || todayISO(),
+      sellerId, sellerSnap: seller,
+      buyerId, buyerSnap: buyer,
+      quality: $("fQuality").value.trim(),
+      quantity: $("fQuantity").value.trim(),
+      unit: $("fUnit").value,
+      bagWeight: $("fBagWeight").value.trim(),
+      bagWeightUnit: $("fBagWeightUnit").value,
+      currency: $("fCurrency").value,
+      rate: $("fRate").value.trim(),
+      rateBasis: $("fRateBasis").value,
+      gst: $("fGst").checked,
+      gstPct: $("fGstPct").value.trim(),
+      totalAmount: $("fTotal").value.trim(),
+      commission: commissionVal || "Nil",
+      paymentTerms: $("fPayment").value.trim(),
+      deliveryTerms: $("fDeliveryTerms").value.trim(),
+      deliveryPeriod: $("fDeliveryPeriod").value.trim(),
+      packing: $("fPacking").value.trim(),
+      weighment: $("fWeighment").value.trim(),
+      conditions: $("fConditions").value.trim(),
+      otherTerms: $("fSpecial").value.trim(),
+      remarks: $("fRemarks").value.trim(),
+      companySnap: company,
+    };
+    currentContract = data;
+    activeDocType = "sale";
+    $("docTabs").style.display = "flex";
+    setActiveTab("sale");
+    renderPreview();
+    if(!opts.silent) maybeSaveQuality(data.quality);
+    ["btnSaveHistory","btnPrint","btnPdf","btnDocx"].forEach(id=>$(id).disabled=false);
+    updateSaveButtonLabel();
+    if(!opts.silent) toast("Contract generated.");
+    return true;
+  }
+  $("btnGenerate").addEventListener("click", ()=>doGenerate());
+
+  function setActiveTab(type){
+    activeDocType = type;
+    $("tabSale").classList.toggle("active", type==="sale");
+    $("tabPurchase").classList.toggle("active", type==="purchase");
+  }
+  $("tabSale").addEventListener("click", ()=>{ setActiveTab("sale"); renderPreview(); });
+  $("tabPurchase").addEventListener("click", ()=>{ setActiveTab("purchase"); renderPreview(); });
+
+  function renderPreview(){
+    if(!currentContract) return;
+    $("previewArea").innerHTML = activeDocType === "sale" ? buildSalesContractHTML(currentContract) : buildPurchaseContractHTML(currentContract);
+  }
+
+  function updateSaveButtonLabel(){
+    $("btnSaveHistory").textContent = editingContractId ? "💾 Update contract" : "💾 Save to history";
+    $("btnSaveHistory").disabled = !currentContract;
+  }
+
+  function resetFormFields(){
+    ["fQuality","fQuantity","fRate","fTotal","fPayment","fDeliveryTerms","fDeliveryPeriod","fSpecial","fRemarks","fBagWeight"].forEach(id=>$(id).value="");
+    $("fSeller").value=""; $("fBuyer").value=""; $("fSellerSearch").value=""; $("fBuyerSearch").value=""; $("fUnit").value="Bags"; $("fCurrency").value="PKR";
+    $("fRateBasis").value="10lbs"; $("fBagWeightUnit").value="lbs";
+    $("fCommission").value="Nil"; $("fCommissionCustom").value=""; $("fCommissionCustom").style.display="none";
+    totalManual = false;
+    $("fPacking").value=""; $("fWeighment").value=""; $("fConditions").value="";
+    $("fContractNo").value=""; $("fDate").value=""; $("fGst").checked = true; $("fGstPct").value = "18";
+    contractNoAuto = true;
+    applyInitialFormDefaults();
+    applyCompanyDefaultsToForm();
+    $("docTabs").style.display = "none";
+    $("previewArea").innerHTML = `<div class="paper-empty">Fill in the form and click <strong>Generate Contract</strong> to see it here.</div>`;
+    currentContract = null;
+    editingContractId = null;
+    editingCreatedAt = null;
+    updateSaveButtonLabel();
+    ["btnPrint","btnPdf","btnDocx"].forEach(id=>$(id).disabled=true);
+  }
+
+  $("btnClearForm").addEventListener("click", async ()=>{
+    const ok = await confirmDialog("Clear the form?", "This clears every field on this new contract (saved sellers, buyers and history are untouched).");
+    if(!ok) return;
+    resetFormFields();
+  });
+
+  // ---------- contract templates ----------
+  function yy(dateStr){
+    const d = new Date((dateStr||todayISO())+"T00:00:00");
+    return String((isNaN(d)?new Date():d).getFullYear()).slice(-2);
+  }
+  function rateBasisLabel(basis){
+    return {kg:"Kg", lbs:"Lbs", "10lbs":"10 Lbs", maund:"Maund", bag:"Bag", bale:"Bale", cone:"Cone", mt:"Metric Ton"}[basis] || basis;
+  }
+  function conditionsBlock(text){
+    if(!text) return "";
+    return `<div style="margin-top:14px;">
+      <div style="font-weight:700; font-size:10.5px; letter-spacing:.5px; border-bottom:1px solid #1a1a1a; padding-bottom:3px; margin-bottom:6px;">CONDITIONS</div>
+      <div style="white-space:pre-wrap; font-size:9.5px; line-height:1.35; color:#333;">${nl2br(text)}</div>
+    </div>`;
+  }
+  function letterheadHTML(c){
+    return `
+      <div style="text-align:center; border-bottom:2px solid #1a1a1a; padding-bottom:10px; margin-bottom:14px;">
+        <div style="font-size:19px; font-weight:700; letter-spacing:.3px;">${esc(c.name)||"Yarn Brokerage"}</div>
+        ${c.address ? `<div style="font-size:11.5px; margin-top:3px;">${nl2br(c.address)}</div>` : ""}
+        <div style="font-size:11.5px; margin-top:3px;">${[c.phone && ("Ph: "+esc(c.phone)), c.email && esc(c.email), c.ntn && ("NTN: "+esc(c.ntn)), c.license && ("License No: "+esc(c.license))].filter(Boolean).join(" &nbsp;|&nbsp; ")}</div>
+      </div>`;
+  }
+  function fieldRow(label, value){
+    if(value==null || value==="") return "";
+    return `<tr>
+      <td style="width:32%; padding:4px 4px; border-bottom:1px solid #999; font-weight:700; font-size:11px; vertical-align:top;">${label}</td>
+      <td style="padding:4px 4px; border-bottom:1px solid #999; vertical-align:top;">${value}</td>
+    </tr>`;
+  }
+  function rateDisplay(d){
+    return `${esc(d.currency)} ${money(d.rate)} per ${rateBasisLabel(d.rateBasis)}${d.gst ? " +GST" : ""}`;
+  }
+  function totalDisplay(d){
+    const suffix = d.gst ? ` <span style="font-weight:400; font-size:12px;">(incl. ${esc(d.gstPct||0)}% GST)</span>` : ` <span style="font-weight:400; font-size:12px;">(excl. GST)</span>`;
+    return `${esc(d.currency)} ${money(d.totalAmount)}${suffix}`;
+  }
+  function signatureBlock(items){
+    return `<table style="width:100%; margin-top:30px;"><tr>
+      ${items.map((it,i)=>`${i>0?'<td style="width:2%;"></td>':""}<td style="width:${Math.floor(96/items.length)}%; text-align:center; padding-top:24px; border-top:1px solid #1a1a1a;">${it.label}<br>${esc(it.name)||""}</td>`).join("")}
+    </tr></table>`;
+  }
+
+  function buildSalesContractHTML(d){
+    const c = d.companySnap || {}, s = d.sellerSnap || {}, b = d.buyerSnap || {};
+    const scNo = `SC ${esc(d.ref)}/${yy(d.date)}`;
+    return `
+    <div id="printArea" style="font-family: Georgia, 'Times New Roman', serif; color:#1a1a1a; background:#ffffff; border:2px solid #1a1a1a; border-radius:16px; padding:34px 42px; max-width:720px; margin:0 auto; line-height:1.48; font-size:12.5px;">
+      ${letterheadHTML(c)}
+      <table style="width:100%; font-size:13px; margin-bottom:14px;">
+        <tr><td style="padding:0;">S.No: <strong>${scNo}</strong></td><td style="padding:0; text-align:right;">Date: <strong>${esc(fmtDate(d.date))}</strong></td></tr>
+      </table>
+      <div style="text-align:center; font-size:17px; font-weight:700; letter-spacing:1.5px; text-decoration:underline; margin-bottom:16px;">SALES CONTRACT</div>
+
+      <table style="width:100%; margin-bottom:10px;">
+        ${fieldRow("SELLER'S NAME", esc(s.name))}
+        ${fieldRow("ATTN", esc(s.contact)||"&nbsp;")}
+      </table>
+      <p style="font-weight:700; margin:14px 0;">WE ARE PLEASED TO CONFIRM HAVING SOLD TO YOU THE UNDER MENTIONED GOODS ON THE FOLLOWING TERMS &amp; CONDITIONS:</p>
+      <table style="width:100%; margin-bottom:6px;">
+        ${fieldRow("BUYER'S NAME", esc(b.name))}
+        ${fieldRow("SALES TAX NO", esc(b.cnic)||"&nbsp;")}
+        ${fieldRow("ADDRESS", nl2br(b.address)||"&nbsp;")}
+        ${fieldRow("QUALITY", esc(d.quality))}
+        ${fieldRow("QUANTITY", `${esc(d.quantity)} ${esc(d.unit)}${d.unit==='Bags'&&d.bagWeight?` (${esc(d.bagWeight)} ${esc(d.bagWeightUnit)}/bag)`:""}`)}
+        ${fieldRow("RATE", rateDisplay(d))}
+        ${fieldRow("TOTAL AMOUNT", totalDisplay(d))}
+        ${fieldRow("PACKING", nl2br(d.packing))}
+        ${fieldRow("DELIVERY PERIOD", nl2br(d.deliveryPeriod)||"Prompt")}
+        ${fieldRow("TERMS OF PAYMENT", nl2br(d.paymentTerms)||"&nbsp;")}
+        ${fieldRow("COMMISSION", esc(d.commission))}
+        ${fieldRow("OTHER TERMS", nl2br(d.otherTerms))}
+        ${fieldRow("REMARKS", nl2br(d.remarks))}
+      </table>
+      ${conditionsBlock(d.conditions)}
+      ${signatureBlock([{label:"(SELLER'S SIGNATURE)", name:s.name},{label:"(ACCEPTED — BUYER'S SIGNATURE &amp; STAMP)", name:b.name}])}
+    </div>`;
+  }
+
+  function buildPurchaseContractHTML(d){
+    const c = d.companySnap || {}, s = d.sellerSnap || {}, b = d.buyerSnap || {};
+    const pcNo = `PC ${esc(d.ref)}/${yy(d.date)}`;
+    return `
+    <div id="printArea" style="font-family: Georgia, 'Times New Roman', serif; color:#1a1a1a; background:#ffffff; border:2px solid #1a1a1a; border-radius:16px; padding:34px 42px; max-width:720px; margin:0 auto; line-height:1.48; font-size:12.5px;">
+      ${letterheadHTML(c)}
+      <table style="width:100%; font-size:13px; margin-bottom:14px;">
+        <tr><td style="padding:0;">S.No: <strong>${pcNo}</strong></td><td style="padding:0; text-align:center;">${c.ntn?`NTN:- ${esc(c.ntn)}`:""}</td><td style="padding:0; text-align:right;">Date: <strong>${esc(fmtDate(d.date))}</strong></td></tr>
+      </table>
+      <div style="text-align:center; font-size:17px; font-weight:700; letter-spacing:1.5px; text-decoration:underline; margin-bottom:16px;">PURCHASE CONTRACT</div>
+
+      <table style="width:100%; margin-bottom:10px;">
+        ${fieldRow("To", esc(s.name))}
+        ${fieldRow("Attn", esc(s.contact)||"&nbsp;")}
+      </table>
+      <p style="margin:14px 0;">We are pleased to confirm the following purchase contract on the terms below:</p>
+      <table style="width:100%; margin-bottom:6px;">
+        ${fieldRow("ITEM", esc(d.quality))}
+        ${fieldRow("BUYER", esc(b.name))}
+        ${fieldRow("BUYER'S GST", esc(b.cnic)||"&nbsp;")}
+        ${fieldRow("SELLER", esc(s.name))}
+        ${fieldRow("RATE", rateDisplay(d))}
+        ${fieldRow("QUANTITY", `${esc(d.quantity)} ${esc(d.unit)}${d.unit==='Bags'&&d.bagWeight?` (${esc(d.bagWeight)} ${esc(d.bagWeightUnit)}/bag)`:""}`)}
+        ${fieldRow("TOTAL AMOUNT", totalDisplay(d))}
+        ${fieldRow("DELIVERY DATE", nl2br(d.deliveryPeriod)||"Prompt")}
+        ${fieldRow("PAYMENT TERMS", nl2br(d.paymentTerms)||"&nbsp;")}
+        ${fieldRow("DELIVERY TERMS", nl2br(d.deliveryTerms))}
+        ${fieldRow("PACKING", nl2br(d.packing))}
+        ${fieldRow("COMMISSION", esc(d.commission))}
+        ${fieldRow("OTHER TERMS", nl2br(d.otherTerms))}
+        ${fieldRow("REMARKS", nl2br(d.remarks))}
+        ${fieldRow("DESPATCH ADDRESS", nl2br(s.address)||"&nbsp;")}
+      </table>
+      ${signatureBlock([{label:"(BROKER)", name:c.name},{label:"(SELLER'S SIGNATURE)", name:s.name}])}
+    </div>`;
+  }
+
+  // ---------- save to history ----------
+  $("btnSaveHistory").addEventListener("click", async ()=>{
+    if(!currentContract) return;
+    if(!db) return toast("Shared storage isn't available here.");
+    try{
+      if(editingContractId){
+        await db.collection("contracts").doc(editingContractId).set({...currentContract, createdAt: editingCreatedAt || Date.now(), updatedAt: Date.now()});
+        toast("Contract updated.");
+        updateSaveButtonLabel();
+      }else{
+        await db.collection("contracts").add({...currentContract, createdAt: Date.now()});
+        resetFormFields(); // ready for the next deal, with the reference number advanced
+        toast("Saved to contract history. Ready for the next contract.");
+      }
+    }catch(e){ console.error(e); toast("Couldn't save to history."); }
+  });
+
+  // ---------- shared: capture the contract as a canvas, sized for A4 ----------
+  const PAGE_W = 595.28, PAGE_H = 841.89, PAGE_MARGIN = 18;
+
+  async function captureContractCanvas(){
+    const node = document.getElementById("printArea");
+    // Render an unclipped, off-screen clone so the scrollable preview box can't cause mis-paginated output.
+    const clone = node.cloneNode(true);
+    clone.style.position = "fixed";
+    clone.style.left = "-10000px";
+    clone.style.top = "0";
+    clone.style.margin = "0";
+    clone.style.maxWidth = "720px";
+    document.body.appendChild(clone);
+    const canvas = await window.html2canvas(clone, { scale: 2, useCORS: true, backgroundColor: "#ffffff", windowWidth: clone.scrollWidth });
+    document.body.removeChild(clone);
+    return canvas;
+  }
+
+  // Scales the whole contract down (never up) so it always fits within one page — width AND height.
+  function fitToOnePage(canvas){
+    const usableW = PAGE_W - PAGE_MARGIN*2;
+    const usableH = PAGE_H - PAGE_MARGIN*2;
+    let w = usableW, h = canvas.height * w / canvas.width;
+    if(h > usableH){ h = usableH; w = canvas.width * h / canvas.height; }
+    return { w, h, x: PAGE_MARGIN + (usableW - w)/2, y: PAGE_MARGIN + (usableH - h)/2 };
+  }
+
+  // ---------- print ----------
+  $("btnPrint").addEventListener("click", async ()=>{
+    if(!currentContract) return;
+    if(!window.html2canvas){ window.print(); return; }
+    // Open the window synchronously, in direct response to the click, so mobile browsers don't block it as a popup.
+    const win = window.open("", "_blank");
+    if(!win){ window.print(); return; }
+    win.document.write("<!DOCTYPE html><html><body style='font-family:sans-serif; padding:40px; color:#555;'>Preparing your document…</body></html>");
+    const btn = $("btnPrint"); const label = btn.textContent; btn.disabled = true; btn.textContent = "Preparing…";
+    try{
+      const canvas = await captureContractCanvas();
+      const imgData = canvas.toDataURL("image/jpeg", 0.95);
+      const { w, h, x, y } = fitToOnePage(canvas);
+
+      win.document.open();
+      win.document.write(`<!DOCTYPE html><html><head><title>${esc(exportFilename())}</title><style>
+        @page{ size:A4; margin:0; }
+        html,body{ margin:0; padding:0; background:#fff; width:${PAGE_W}pt; height:${PAGE_H}pt; overflow:hidden; }
+        .pg{ position:relative; width:${PAGE_W}pt; height:${PAGE_H}pt; }
+        img{ display:block; position:absolute; left:${x}pt; top:${y}pt; width:${w}pt; height:${h}pt; }
+      </style></head><body><div class="pg"><img src="${imgData}"></div></body></html>`);
+      win.document.close();
+      setTimeout(()=>{ win.focus(); win.print(); }, 350);
+    }catch(e){
+      console.error(e);
+      toast("Couldn't prepare the print view.");
+      try{ win.close(); }catch(_){}
+      window.print();
+    }
+    btn.disabled = false; btn.textContent = label;
+  });
+
+  // ---------- pdf ----------
+  $("btnPdf").addEventListener("click", async ()=>{
+    if(!currentContract) return;
+    if(!window.jspdf || !window.html2canvas){ toast("PDF library didn't load."); return; }
+    const btn = $("btnPdf"); btn.disabled = true; const label = btn.textContent; btn.textContent = "Preparing…";
+    try{
+      const { jsPDF } = window.jspdf;
+      const canvas = await captureContractCanvas();
+      const imgData = canvas.toDataURL("image/jpeg", 0.95);
+      const { w, h, x, y } = fitToOnePage(canvas);
+
+      const pdf = new jsPDF({ unit: "pt", format: "a4" });
+      pdf.addImage(imgData, "JPEG", x, y, w, h);
+      const blob = pdf.output("blob");
+      await saveFile(exportFilename() + ".pdf", blob);
+    }catch(e){ console.error(e); toast("Couldn't build the PDF."); }
+    btn.disabled = false; btn.textContent = label;
+  });
+
+  function exportFilename(){
+    const prefix = activeDocType === "sale" ? "SC" : "PC";
+    return `${prefix}-${currentContract.ref || "contract"}`;
+  }
+
+  // ---------- docx ----------
+  $("btnDocx").addEventListener("click", async ()=>{
+    if(!currentContract) return;
+    if(!window.htmlDocx){ toast("Word export library didn't load."); return; }
+    try{
+      const inner = document.getElementById("printArea").outerHTML;
+      const full = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>${esc(exportFilename())}</title></head><body>${inner}</body></html>`;
+      const blob = window.htmlDocx.asBlob(full);
+      await saveFile(exportFilename() + ".docx", blob);
+    }catch(e){ console.error(e); toast("Couldn't build the Word file."); }
+  });
+
+  async function saveFile(filename, blob){
+    if(!downloads){
+      toast("Downloads aren't available in this view.");
+      return;
+    }
+    try{
+      const res = await downloads.save({ filename, data: blob });
+      if(res && res.status) toast("Download ready.");
+    }catch(e){
+      if(e && e.code === "declined") return;
+      console.error(e);
+      toast("Couldn't save the file.");
+    }
+  }
+
+  // ---------- history ----------
+  function populateFormFromContract(c){
+    contractNoAuto = false;
+    selectComboItem("Seller", c.sellerId || "");
+    selectComboItem("Buyer", c.buyerId || "");
+    $("fContractNo").value = c.ref || "";
+    $("fDate").value = c.date || "";
+    $("fQuality").value = c.quality || "";
+    $("fQuantity").value = c.quantity || "";
+    $("fUnit").value = c.unit || "Bags";
+    $("fBagWeight").value = c.bagWeight || "";
+    $("fBagWeightUnit").value = c.bagWeightUnit || "lbs";
+    $("fCurrency").value = c.currency || "PKR";
+    $("fRate").value = c.rate || "";
+    $("fRateBasis").value = c.rateBasis || "10lbs";
+    $("fGst").checked = !!c.gst;
+    $("fGstPct").value = c.gstPct || "18";
+    $("fTotal").value = c.totalAmount || "";
+    totalManual = true; // keep the historical total as-is instead of recomputing it
+    const knownCommissions = ["Nil","0.5%","1%"];
+    if(knownCommissions.includes(c.commission)){
+      $("fCommission").value = c.commission || "Nil";
+      $("fCommissionCustom").style.display = "none";
+      $("fCommissionCustom").value = "";
+    }else{
+      $("fCommission").value = "__custom__";
+      $("fCommissionCustom").style.display = "block";
+      $("fCommissionCustom").value = c.commission || "";
+    }
+    $("fPayment").value = c.paymentTerms || "";
+    $("fDeliveryTerms").value = c.deliveryTerms || "";
+    $("fDeliveryPeriod").value = c.deliveryPeriod || "";
+    $("fPacking").value = c.packing || "";
+    $("fWeighment").value = c.weighment || "";
+    $("fConditions").value = c.conditions || "";
+    $("fSpecial").value = c.otherTerms || "";
+    $("fRemarks").value = c.remarks || "";
+    toggleBagWeightRow();
+    toggleGstPctRow();
+  }
+
+  function goToNewContractView(){
+    document.querySelectorAll(".nav-btn").forEach(x=>x.classList.remove("active"));
+    document.querySelectorAll(".view").forEach(v=>v.classList.remove("active"));
+    document.querySelector('.nav-btn[data-view="new"]').classList.add("active");
+    $("view-new").classList.add("active");
+  }
+
+  const historyFilters = { q: "", from: "", to: "" };
+  $("histSearch").addEventListener("input", ()=>{ historyFilters.q = $("histSearch").value.trim().toLowerCase(); renderHistory(); });
+  $("histFrom").addEventListener("change", ()=>{ historyFilters.from = $("histFrom").value; renderHistory(); });
+  $("histTo").addEventListener("change", ()=>{ historyFilters.to = $("histTo").value; renderHistory(); });
+  $("btnHistClear").addEventListener("click", ()=>{
+    historyFilters.q = ""; historyFilters.from = ""; historyFilters.to = "";
+    $("histSearch").value = ""; $("histFrom").value = ""; $("histTo").value = "";
+    renderHistory();
+  });
+
+  function getFilteredContracts(){
+    return contracts.filter(c=>{
+      if(historyFilters.from && (c.date||"") < historyFilters.from) return false;
+      if(historyFilters.to && (c.date||"") > historyFilters.to) return false;
+      if(historyFilters.q){
+        const hay = [c.ref, c.sellerSnap&&c.sellerSnap.name, c.buyerSnap&&c.buyerSnap.name, c.quality, c.commission]
+          .filter(Boolean).join(" ").toLowerCase();
+        if(!hay.includes(historyFilters.q)) return false;
+      }
+      return true;
+    });
+  }
+
+  function renderHistory(){
+    if(contracts.length===0){
+      $("histCount").textContent = "";
+      $("historyTableWrap").innerHTML = `<div class="empty">No contracts saved yet. Generate one from "New Contract" and save it here.</div>`;
+      return;
+    }
+    const filtered = getFilteredContracts();
+    const filtersActive = historyFilters.q || historyFilters.from || historyFilters.to;
+    $("histCount").textContent = filtersActive ? `Showing ${filtered.length} of ${contracts.length}` : `${contracts.length} contract${contracts.length===1?"":"s"}`;
+    if(filtered.length===0){
+      $("historyTableWrap").innerHTML = `<div class="empty">No contracts match your filters.</div>`;
+      return;
+    }
+    $("historyTableWrap").innerHTML = `<table><thead><tr><th>Ref No</th><th>Date</th><th>Seller</th><th>Buyer</th><th>Amount</th><th></th></tr></thead><tbody>
+      ${filtered.map(c=>`<tr>
+        <td class="pill" style="font-family:var(--font-mono);">${esc(c.ref)}</td>
+        <td>${esc(fmtDate(c.date))}</td>
+        <td>${esc(c.sellerSnap && c.sellerSnap.name)}</td>
+        <td>${esc(c.buyerSnap && c.buyerSnap.name)}</td>
+        <td>${esc(c.currency)} ${money(c.totalAmount)}</td>
+        <td><div class="row-actions">
+          <button class="btn btn-sm btn-ghost" data-view-contract="${c.id}">View</button>
+          <button class="btn btn-sm btn-ghost" data-edit-contract="${c.id}">Edit</button>
+        </div></td>
+      </tr>`).join("")}
+      </tbody></table>`;
+    $("historyTableWrap").querySelectorAll("[data-view-contract]").forEach(b=>{
+      b.addEventListener("click", ()=>{
+        const c = contracts.find(x=>x.id===b.dataset.viewContract);
+        currentContract = c;
+        editingContractId = null;
+        editingCreatedAt = null;
+        goToNewContractView();
+        $("docTabs").style.display = "flex";
+        setActiveTab("sale");
+        renderPreview();
+        ["btnPrint","btnPdf","btnDocx"].forEach(id=>$(id).disabled=false);
+        updateSaveButtonLabel();
+        $("btnSaveHistory").disabled = true; // view-only — use Edit to make changes
+        document.querySelector(".paper-scroll").scrollIntoView({behavior:"smooth", block:"start"});
+      });
+    });
+    $("historyTableWrap").querySelectorAll("[data-edit-contract]").forEach(b=>{
+      b.addEventListener("click", ()=>{
+        const c = contracts.find(x=>x.id===b.dataset.editContract);
+        editingContractId = c.id;
+        editingCreatedAt = c.createdAt || Date.now();
+        goToNewContractView();
+        populateFormFromContract(c);
+        doGenerate({silent:true});
+        toast("Loaded for editing — make your changes, then Update.");
+        window.scrollTo({top:0, behavior:"smooth"});
+      });
+    });
+  }
+
+  init();
+})();
+</script>
+</body>
+</html>
