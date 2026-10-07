@@ -1,4 +1,4 @@
-# Yarn Contract Desk
+ # Yarn Contract Desk
 
 Standalone version of the Yarn Contract Desk app — same features (sellers,
 buyers, qualities, contract generator, dual Sales/Purchase documents, PDF/Word
