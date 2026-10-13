@@ -854,8 +854,13 @@
   }
 
   function subscribeCompany(){
+    let lastCompanyJson = null;
     db.doc("company/profile").onSnapshot((snap)=>{
-      company = snap.exists ? (snap.data()||{}) : {};
+      const data = snap.exists ? (snap.data()||{}) : {};
+      const json = JSON.stringify(data);
+      company = data;
+      if(json === lastCompanyJson) return; // nothing changed — don't touch the form
+      lastCompanyJson = json;
       fillCompanyForm();
       applyCompanyDefaultsToForm();
     }, (err)=>{ console.error("company sub error", err); });
@@ -1425,6 +1430,14 @@
   });
 
   // ---------- contract templates ----------
+  // The letterhead should always show your current brokerage details, not whatever was
+  // saved with an older contract. Falls back to the contract's own copy, then the starter details.
+  function effectiveCompany(d){
+    const merged = Object.assign({}, COMPANY_SEED, (d && d.companySnap) || {});
+    Object.keys(company || {}).forEach(k => { if(company[k] !== "" && company[k] != null) merged[k] = company[k]; });
+    return merged;
+  }
+
   function yy(dateStr){
     const d = new Date((dateStr||todayISO())+"T00:00:00");
     return String((isNaN(d)?new Date():d).getFullYear()).slice(-2);
@@ -1468,7 +1481,7 @@
   }
 
   function buildSalesContractHTML(d){
-    const c = d.companySnap || {}, s = d.sellerSnap || {}, b = d.buyerSnap || {};
+    const c = effectiveCompany(d), s = d.sellerSnap || {}, b = d.buyerSnap || {};
     const scNo = `SC ${esc(d.ref)}/${yy(d.date)}`;
     return `
     <div id="printArea" style="font-family: Georgia, 'Times New Roman', serif; color:#1a1a1a; background:#ffffff; border:2px solid #1a1a1a; border-radius:16px; padding:34px 42px; max-width:720px; margin:0 auto; line-height:1.48; font-size:12.5px;">
@@ -1504,7 +1517,7 @@
   }
 
   function buildPurchaseContractHTML(d){
-    const c = d.companySnap || {}, s = d.sellerSnap || {}, b = d.buyerSnap || {};
+    const c = effectiveCompany(d), s = d.sellerSnap || {}, b = d.buyerSnap || {};
     const pcNo = `PC ${esc(d.ref)}/${yy(d.date)}`;
     return `
     <div id="printArea" style="font-family: Georgia, 'Times New Roman', serif; color:#1a1a1a; background:#ffffff; border:2px solid #1a1a1a; border-radius:16px; padding:34px 42px; max-width:720px; margin:0 auto; line-height:1.48; font-size:12.5px;">
