@@ -2,11 +2,10 @@ const { getRedis } = require("../lib/redis");
 
 module.exports = async (req, res) => {
   try {
-    const redis = getRedis();
+    const redis = await getRedis();
     if (req.method === "GET") {
       const raw = await redis.get("company");
-      const data = raw ? (typeof raw === "string" ? JSON.parse(raw) : raw) : {};
-      res.status(200).json(data);
+      res.status(200).json(raw ? JSON.parse(raw) : {});
     } else if (req.method === "PUT") {
       await redis.set("company", JSON.stringify(req.body || {}));
       res.status(200).json({ ok: true });
