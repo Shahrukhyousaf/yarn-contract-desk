@@ -1494,11 +1494,11 @@
       <table style="width:100%; margin-bottom:10px;">
         ${fieldRow("SELLER'S NAME", esc(s.name))}
         ${fieldRow("ATTN", esc(s.contact)||"&nbsp;")}
+        ${fieldRow("SALES TAX NO", esc(s.cnic)||"&nbsp;")}
       </table>
       <p style="font-weight:700; margin:14px 0;">WE ARE PLEASED TO CONFIRM HAVING SOLD TO YOU THE UNDER MENTIONED GOODS ON THE FOLLOWING TERMS &amp; CONDITIONS:</p>
       <table style="width:100%; margin-bottom:6px;">
         ${fieldRow("BUYER'S NAME", esc(b.name))}
-        ${fieldRow("SALES TAX NO", esc(b.cnic)||"&nbsp;")}
         ${fieldRow("ADDRESS", nl2br(b.address)||"&nbsp;")}
         ${fieldRow("QUALITY", esc(d.quality))}
         ${fieldRow("QUANTITY", `${esc(d.quantity)} ${esc(d.unit)}${d.unit==='Bags'&&d.bagWeight?` (${esc(d.bagWeight)} ${esc(d.bagWeightUnit)}/bag)`:""}`)}
