@@ -1774,6 +1774,7 @@
         <td><div class="row-actions">
           <button class="btn btn-sm btn-ghost" data-view-contract="${c.id}">View</button>
           <button class="btn btn-sm btn-ghost" data-edit-contract="${c.id}">Edit</button>
+          <button class="btn btn-sm btn-danger" data-delete-contract="${c.id}">Delete</button>
         </div></td>
       </tr>`).join("")}
       </tbody></table>`;
@@ -1803,6 +1804,20 @@
         doGenerate({silent:true});
         toast("Loaded for editing — make your changes, then Update.");
         window.scrollTo({top:0, behavior:"smooth"});
+      });
+    });
+    $("historyTableWrap").querySelectorAll("[data-delete-contract]").forEach(b=>{
+      b.addEventListener("click", async ()=>{
+        const c = contracts.find(x=>x.id===b.dataset.deleteContract);
+        if(!c) return;
+        const label = `SC/PC ${c.ref || ""} — ${(c.sellerSnap && c.sellerSnap.name) || "seller"} to ${(c.buyerSnap && c.buyerSnap.name) || "buyer"}`;
+        const ok = await confirmDialog("Delete this contract?", `${label} will be permanently removed from your history. This can't be undone.`);
+        if(!ok) return;
+        try{
+          await db.collection("contracts").doc(c.id).delete();
+          if(editingContractId === c.id){ editingContractId = null; editingCreatedAt = null; updateSaveButtonLabel(); }
+          toast("Contract deleted.");
+        }catch(e){ console.error(e); toast("Couldn't delete the contract."); }
       });
     });
   }
