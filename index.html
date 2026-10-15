@@ -570,6 +570,24 @@
           <textarea id="cConditions" style="min-height:150px;"></textarea>
         </div>
         <hr style="border:none; border-top:1px solid var(--border); margin:18px 0;">
+        <div class="field">
+          <label>Company Logo</label>
+          <div style="display:flex; align-items:center; gap:16px; flex-wrap:wrap;">
+            <div id="logoPreviewBox" style="width:140px; height:94px; border:1px dashed var(--border); border-radius:8px; background:#fff; display:flex; align-items:center; justify-content:center; overflow:hidden;">
+              <span id="logoPreviewEmpty" style="font-size:12px; color:#888;">No logo</span>
+              <img id="logoPreviewImg" alt="Logo preview" style="display:none; max-width:100%; max-height:100%;">
+            </div>
+            <div>
+              <div class="btn-row">
+                <button type="button" class="btn btn-sm" id="btnChooseLogo">Choose logo…</button>
+                <button type="button" class="btn btn-sm btn-ghost" id="btnRemoveLogo" style="display:none;">Remove logo</button>
+              </div>
+              <input type="file" id="logoFile" accept="image/png,image/jpeg,image/webp" style="display:none;">
+              <label class="checkline" style="margin:10px 0 0;"><input type="checkbox" id="cLogoWatermark" checked> Also show a faint watermark behind the contract</label>
+            </div>
+          </div>
+          <div class="hint">A PNG with a transparent background works best. The logo appears at the top left of every Sales and Purchase Contract. Click <b>Save brokerage details</b> below to apply it.</div>
+        </div>
         <div class="field" style="max-width:280px;">
           <label for="cStartRef">Starting Reference Number</label>
           <input type="number" id="cStartRef" min="1" step="1" placeholder="e.g. 1001">
@@ -678,10 +696,13 @@
     };
   }
 
+  // One shared instance per collection, so a save immediately refreshes the screens listening to it.
+  const collectionCache = {};
+  let companyDocInstance = null;
   window.__dbShim = {
-    collection(name){ return makeCollection(name); },
+    collection(name){ return collectionCache[name] || (collectionCache[name] = makeCollection(name)); },
     doc(path){
-      if(path === "company/profile") return makeCompanyDoc();
+      if(path === "company/profile") return companyDocInstance || (companyDocInstance = makeCompanyDoc());
       throw new Error("Unsupported doc path: " + path);
     }
   };
@@ -861,6 +882,7 @@
       company = data;
       if(json === lastCompanyJson) return; // nothing changed — don't touch the form
       lastCompanyJson = json;
+      prepareFadedLogo();
       fillCompanyForm();
       applyCompanyDefaultsToForm();
     }, (err)=>{ console.error("company sub error", err); });
@@ -971,6 +993,75 @@
     $("cWeighment").value = company.weighment || DEFAULTS.weighment;
     $("cConditions").value = company.conditions || DEFAULTS.conditions;
     $("cStartRef").value = company.startingRef || "";
+    setLogoDraft(company.logo || "", company.logoAspect || null);
+    $("cLogoWatermark").checked = company.logoWatermark !== false;
+  }
+
+  // ---------- company logo ----------
+  let logoDraft = "", logoDraftAspect = null;
+  function setLogoDraft(dataUrl, aspect){
+    logoDraft = dataUrl || "";
+    logoDraftAspect = aspect || null;
+    $("logoPreviewImg").style.display = logoDraft ? "block" : "none";
+    $("logoPreviewEmpty").style.display = logoDraft ? "none" : "block";
+    $("btnRemoveLogo").style.display = logoDraft ? "inline-flex" : "none";
+    if(logoDraft) $("logoPreviewImg").src = logoDraft;
+  }
+  // Shrinks the chosen image (keeping transparency) so it stays light to store and fast to load.
+  function resizeLogoFile(file){
+    return new Promise((resolve, reject)=>{
+      const reader = new FileReader();
+      reader.onerror = ()=>reject(new Error("read"));
+      reader.onload = ()=>{
+        const img = new Image();
+        img.onerror = ()=>reject(new Error("decode"));
+        img.onload = ()=>{
+          const maxW = 600;
+          const scale = Math.min(1, maxW / img.width);
+          const w = Math.max(1, Math.round(img.width * scale)), h = Math.max(1, Math.round(img.height * scale));
+          const canvas = document.createElement("canvas");
+          canvas.width = w; canvas.height = h;
+          canvas.getContext("2d").drawImage(img, 0, 0, w, h);
+          resolve({ dataUrl: canvas.toDataURL("image/png"), aspect: w / h });
+        };
+        img.src = reader.result;
+      };
+      reader.readAsDataURL(file);
+    });
+  }
+  $("btnChooseLogo").addEventListener("click", ()=>$("logoFile").click());
+  $("btnRemoveLogo").addEventListener("click", ()=>setLogoDraft("", null));
+  $("logoFile").addEventListener("change", async (e)=>{
+    const file = e.target.files[0];
+    e.target.value = "";
+    if(!file) return;
+    if(file.size > 8 * 1024 * 1024){ toast("That image is too large — please choose one under 8 MB."); return; }
+    try{
+      const out = await resizeLogoFile(file);
+      setLogoDraft(out.dataUrl, out.aspect);
+      toast("Logo ready — click Save brokerage details to apply it.");
+    }catch(err){ console.error(err); toast("Couldn't read that image."); }
+  });
+
+  // Faint copy of the logo used as the watermark (made in the browser, never stored).
+  let fadedLogo = "", fadedLogoSource = "";
+  function prepareFadedLogo(){
+    const src = company && company.logo;
+    if(!src){ fadedLogo = ""; fadedLogoSource = ""; return; }
+    if(src === fadedLogoSource) return;
+    fadedLogoSource = src;
+    const img = new Image();
+    img.onload = ()=>{
+      if(fadedLogoSource !== src) return;
+      const c = document.createElement("canvas");
+      c.width = img.width; c.height = img.height;
+      const ctx = c.getContext("2d");
+      ctx.globalAlpha = 0.08;
+      ctx.drawImage(img, 0, 0);
+      fadedLogo = c.toDataURL("image/png");
+      if(currentContract) renderPreview();
+    };
+    img.src = src;
   }
 
   $("btnSaveCompany").addEventListener("click", async ()=>{
@@ -986,6 +1077,9 @@
       weighment: $("cWeighment").value.trim(),
       conditions: $("cConditions").value.trim(),
       startingRef: $("cStartRef").value.trim() ? Number($("cStartRef").value.trim()) : null,
+      logo: logoDraft,
+      logoAspect: logoDraft ? logoDraftAspect : null,
+      logoWatermark: $("cLogoWatermark").checked,
     };
     try{
       await db.doc("company/profile").set(data);
@@ -1071,7 +1165,7 @@
     $("sellerFormWrap").innerHTML = partyFormHTML("s", null);
     $("sellerFormWrap").style.display = "block";
     wireSellerForm();
-    $("sSName").focus();
+    $("sName").focus();
   });
 
   function wireSellerForm(){
@@ -1370,7 +1464,7 @@
       conditions: $("fConditions").value.trim(),
       otherTerms: $("fSpecial").value.trim(),
       remarks: $("fRemarks").value.trim(),
-      companySnap: company,
+      companySnap: companyWithoutLogo(),
     };
     currentContract = data;
     activeDocType = "sale";
@@ -1432,6 +1526,11 @@
   // ---------- contract templates ----------
   // The letterhead should always show your current brokerage details, not whatever was
   // saved with an older contract. Falls back to the contract's own copy, then the starter details.
+  function companyWithoutLogo(){
+    const copy = Object.assign({}, company);
+    delete copy.logo; delete copy.logoAspect; delete copy.logoWatermark;
+    return copy;
+  }
   function effectiveCompany(d){
     const merged = Object.assign({}, COMPANY_SEED, (d && d.companySnap) || {});
     Object.keys(company || {}).forEach(k => { if(company[k] !== "" && company[k] != null) merged[k] = company[k]; });
@@ -1452,7 +1551,27 @@
       <div style="white-space:pre-wrap; font-size:9.5px; line-height:1.35; color:#333;">${nl2br(text)}</div>
     </div>`;
   }
+  function watermarkStyle(c){
+    if(!c.logo || c.logoWatermark === false || !fadedLogo) return "";
+    return `background-image:url('${fadedLogo}'); background-repeat:no-repeat; background-position:center 54%; background-size:430px auto;`;
+  }
   function letterheadHTML(c){
+    if(c.logo){
+      const h = 84, w = Math.round(h * (c.logoAspect || 1.5));
+      const lines = [
+        c.address ? nl2br(c.address) : "",
+        c.phone ? "Ph: " + esc(c.phone) : "",
+        [c.email && esc(c.email), c.ntn && ("NTN: " + esc(c.ntn)), c.license && ("License No: " + esc(c.license))].filter(Boolean).join(" &nbsp;|&nbsp; ")
+      ].filter(Boolean);
+      return `
+      <table style="width:100%; border-collapse:collapse; border-bottom:2px solid #1a1a1a; margin-bottom:14px;"><tr>
+        <td style="width:${w + 20}px; padding:0 0 10px 0; vertical-align:middle;"><img src="${c.logo}" width="${w}" height="${h}" style="height:${h}px; width:${w}px; display:block;"></td>
+        <td style="padding:0 0 10px 0; text-align:right; vertical-align:middle; line-height:1.5;">
+          <div style="font-size:17px; font-weight:700;">${esc(c.name)||"Yarn Brokerage"}</div>
+          ${lines.map(l=>`<div style="font-size:11.5px;">${l}</div>`).join("")}
+        </td>
+      </tr></table>`;
+    }
     return `
       <div style="text-align:center; border-bottom:2px solid #1a1a1a; padding-bottom:10px; margin-bottom:14px;">
         <div style="font-size:19px; font-weight:700; letter-spacing:.3px;">${esc(c.name)||"Yarn Brokerage"}</div>
@@ -1484,7 +1603,7 @@
     const c = effectiveCompany(d), s = d.sellerSnap || {}, b = d.buyerSnap || {};
     const scNo = `SC ${esc(d.ref)}/${yy(d.date)}`;
     return `
-    <div id="printArea" style="font-family: Georgia, 'Times New Roman', serif; color:#1a1a1a; background:#ffffff; border:2px solid #1a1a1a; border-radius:16px; padding:34px 42px; max-width:720px; margin:0 auto; line-height:1.48; font-size:12.5px;">
+    <div id="printArea" style="font-family: Georgia, 'Times New Roman', serif; color:#1a1a1a; background:#ffffff; ${watermarkStyle(c)} border:2px solid #1a1a1a; border-radius:16px; padding:34px 42px; max-width:720px; margin:0 auto; line-height:1.48; font-size:12.5px;">
       ${letterheadHTML(c)}
       <table style="width:100%; font-size:13px; margin-bottom:14px;">
         <tr><td style="padding:0;">S.No: <strong>${scNo}</strong></td><td style="padding:0; text-align:right;">Date: <strong>${esc(fmtDate(d.date))}</strong></td></tr>
@@ -1519,7 +1638,7 @@
     const c = effectiveCompany(d), s = d.sellerSnap || {}, b = d.buyerSnap || {};
     const pcNo = `PC ${esc(d.ref)}/${yy(d.date)}`;
     return `
-    <div id="printArea" style="font-family: Georgia, 'Times New Roman', serif; color:#1a1a1a; background:#ffffff; border:2px solid #1a1a1a; border-radius:16px; padding:34px 42px; max-width:720px; margin:0 auto; line-height:1.48; font-size:12.5px;">
+    <div id="printArea" style="font-family: Georgia, 'Times New Roman', serif; color:#1a1a1a; background:#ffffff; ${watermarkStyle(c)} border:2px solid #1a1a1a; border-radius:16px; padding:34px 42px; max-width:720px; margin:0 auto; line-height:1.48; font-size:12.5px;">
       ${letterheadHTML(c)}
       <table style="width:100%; font-size:13px; margin-bottom:14px;">
         <tr><td style="padding:0;">S.No: <strong>${pcNo}</strong></td><td style="padding:0; text-align:center;">${c.ntn?`NTN:- ${esc(c.ntn)}`:""}</td><td style="padding:0; text-align:right;">Date: <strong>${esc(fmtDate(d.date))}</strong></td></tr>
