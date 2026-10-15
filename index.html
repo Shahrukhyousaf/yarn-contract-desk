@@ -4,7 +4,15 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Yarn Contract Desk</title>
-<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>%F0%9F%A7%B6</text></svg>">
+<link rel="icon" type="image/png" href="/icon-192.png">
+<link rel="apple-touch-icon" href="/apple-touch-icon.png">
+<link rel="manifest" href="/manifest.json">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Contract Desk">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="theme-color" content="#F6F2EA" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#191712" media="(prefers-color-scheme: dark)">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Spectral:wght@400;500;600;700&family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
@@ -264,6 +272,9 @@
       <button class="nav-btn" data-view="history">📚 Contract History <span class="nav-count" id="countHistory"></span></button>
       <button class="nav-btn" data-view="company">🏷️ My Brokerage</button>
     </nav>
+    <div id="installWrap" style="display:none; padding:14px 6px 0;">
+      <button class="btn btn-sm" id="btnInstallApp" style="width:100%; justify-content:center;">⬇ Install app on this device</button>
+    </div>
     <div class="sidebar-foot" id="dbStatus">Connecting…</div>
   </aside>
 
@@ -710,6 +721,19 @@
   window.__downloadsShim = {
     async save({ filename, data }){
       const blob = data instanceof Blob ? data : new Blob([data]);
+      // iPhone/iPad: the share sheet is the reliable way to save, print or send a file.
+      if(/iPhone|iPad|iPod/.test(navigator.userAgent) && navigator.canShare && navigator.share){
+        try{
+          const file = new File([blob], filename, { type: blob.type || "application/octet-stream" });
+          if(navigator.canShare({ files: [file] })){
+            await navigator.share({ files: [file], title: filename });
+            return { status: "ok" };
+          }
+        }catch(err){
+          if(err && err.name === "AbortError") return { status: "cancelled" };
+          // anything else (e.g. share not allowed here): fall through to a normal download
+        }
+      }
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url; a.download = filename;
@@ -787,6 +811,25 @@
       ok.addEventListener("click", onOk);
       cancel.addEventListener("click", onCancel);
     });
+  }
+
+  // ---------- install as an app (Android / Chrome) ----------
+  let deferredInstall = null;
+  window.addEventListener("beforeinstallprompt", (e)=>{
+    e.preventDefault();
+    deferredInstall = e;
+    $("installWrap").style.display = "block";
+  });
+  $("btnInstallApp").addEventListener("click", async ()=>{
+    if(!deferredInstall) return;
+    deferredInstall.prompt();
+    try{ await deferredInstall.userChoice; }catch(_){}
+    deferredInstall = null;
+    $("installWrap").style.display = "none";
+  });
+  window.addEventListener("appinstalled", ()=>{ $("installWrap").style.display = "none"; });
+  if("serviceWorker" in navigator){
+    window.addEventListener("load", ()=>{ navigator.serviceWorker.register("/sw.js").catch(()=>{}); });
   }
 
   // ---------- nav ----------
@@ -1718,6 +1761,14 @@
   // ---------- print ----------
   $("btnPrint").addEventListener("click", async ()=>{
     if(!currentContract) return;
+    const isIOS = /iPhone|iPad|iPod/.test(navigator.userAgent);
+    const isAndroid = /Android/.test(navigator.userAgent);
+    const installedApp = window.navigator.standalone === true || (window.matchMedia && window.matchMedia("(display-mode: standalone)").matches);
+    if((isIOS || isAndroid) && installedApp){
+      toast(isIOS ? "Opening the share menu — choose Print there." : "Saving a PDF — open it from your Downloads to print.");
+      $("btnPdf").click();
+      return;
+    }
     if(!window.html2canvas){ window.print(); return; }
     // Open the window synchronously, in direct response to the click, so mobile browsers don't block it as a popup.
     const win = window.open("", "_blank");
