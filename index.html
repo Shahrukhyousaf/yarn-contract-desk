@@ -444,12 +444,13 @@
             <button class="btn btn-primary" id="btnGenerate">Generate Contract</button>
             <button class="btn btn-ghost" id="btnClearForm">Clear form</button>
           </div>
+          <div class="hint" id="autoSaveHint" style="margin-top:10px;">Every contract is saved to History automatically when you generate it.</div>
         </div>
 
         <div class="preview-wrap">
           <div class="preview-shell">
             <div class="preview-actions">
-              <button class="btn btn-accent btn-sm" id="btnSaveHistory" disabled>💾 Save to history</button>
+              <button class="btn btn-accent btn-sm" id="btnNewContract" disabled>＋ New contract</button>
               <button class="btn btn-sm" id="btnPrint" disabled>🖨️ Print</button>
               <button class="btn btn-sm" id="btnPdf" disabled>⬇ PDF</button>
               <button class="btn btn-sm" id="btnDocx" disabled>⬇ Word</button>
@@ -1514,11 +1515,45 @@
     $("docTabs").style.display = "flex";
     setActiveTab("sale");
     renderPreview();
-    if(!opts.silent) maybeSaveQuality(data.quality);
-    ["btnSaveHistory","btnPrint","btnPdf","btnDocx"].forEach(id=>$(id).disabled=false);
+    ["btnNewContract","btnPrint","btnPdf","btnDocx"].forEach(id=>$(id).disabled=false);
     updateSaveButtonLabel();
-    if(!opts.silent) toast("Contract generated.");
+    if(!opts.silent){
+      maybeSaveQuality(data.quality);
+      autoSaveContract(data);
+    }
     return true;
+  }
+
+  // Saves (or updates) the contract in History every time it is generated. Saves run one after another,
+  // so a quick double-click can never create the same contract twice.
+  let saveChain = Promise.resolve();
+  function autoSaveContract(data){
+    saveChain = saveChain.then(async ()=>{
+      if(!db){ toast("Generated, but shared storage isn't available — it was NOT saved."); return; }
+      try{
+        if(editingContractId){
+          await db.collection("contracts").doc(editingContractId).set({...data, createdAt: editingCreatedAt || Date.now(), updatedAt: Date.now()});
+          toast("Contract updated and saved.");
+        }else{
+          const now = Date.now();
+          // Freeze the reference number BEFORE saving: saving refreshes the list, which would otherwise
+          // bump the number field to the next one while this contract is still open.
+          contractNoAuto = false;
+          let ref;
+          try{
+            ref = await db.collection("contracts").add({...data, createdAt: now});
+          }catch(err){ contractNoAuto = true; throw err; }
+          editingContractId = ref && ref.id ? ref.id : null;
+          editingCreatedAt = now;
+          updateSaveButtonLabel();
+          toast("Contract generated and saved to History.");
+        }
+      }catch(e){
+        console.error(e);
+        toast("Generated, but it could NOT be saved. Check your connection and click Generate again.");
+      }
+    });
+    return saveChain;
   }
   $("btnGenerate").addEventListener("click", ()=>doGenerate());
 
@@ -1536,8 +1571,11 @@
   }
 
   function updateSaveButtonLabel(){
-    $("btnSaveHistory").textContent = editingContractId ? "💾 Update contract" : "💾 Save to history";
-    $("btnSaveHistory").disabled = !currentContract;
+    $("btnGenerate").textContent = editingContractId ? "Update Contract" : "Generate Contract";
+    $("btnNewContract").disabled = !currentContract;
+    $("autoSaveHint").textContent = editingContractId
+      ? "This contract is saved in History. Generating again updates it — click ＋ New contract to start a different one."
+      : "Every contract is saved to History automatically when you generate it.";
   }
 
   function resetFormFields(){
@@ -1714,21 +1752,11 @@
     </div>`;
   }
 
-  // ---------- save to history ----------
-  $("btnSaveHistory").addEventListener("click", async ()=>{
-    if(!currentContract) return;
-    if(!db) return toast("Shared storage isn't available here.");
-    try{
-      if(editingContractId){
-        await db.collection("contracts").doc(editingContractId).set({...currentContract, createdAt: editingCreatedAt || Date.now(), updatedAt: Date.now()});
-        toast("Contract updated.");
-        updateSaveButtonLabel();
-      }else{
-        await db.collection("contracts").add({...currentContract, createdAt: Date.now()});
-        resetFormFields(); // ready for the next deal, with the reference number advanced
-        toast("Saved to contract history. Ready for the next contract.");
-      }
-    }catch(e){ console.error(e); toast("Couldn't save to history."); }
+  // ---------- start another contract ----------
+  $("btnNewContract").addEventListener("click", ()=>{
+    resetFormFields(); // the current one is already saved in History
+    window.scrollTo({top:0, behavior:"smooth"});
+    toast("Ready for a new contract.");
   });
 
   // ---------- shared: capture the contract as a canvas, sized for A4 ----------
@@ -1959,7 +1987,6 @@
         renderPreview();
         ["btnPrint","btnPdf","btnDocx"].forEach(id=>$(id).disabled=false);
         updateSaveButtonLabel();
-        $("btnSaveHistory").disabled = true; // view-only — use Edit to make changes
         document.querySelector(".paper-scroll").scrollIntoView({behavior:"smooth", block:"start"});
       });
     });
@@ -1971,7 +1998,7 @@
         goToNewContractView();
         populateFormFromContract(c);
         doGenerate({silent:true});
-        toast("Loaded for editing — make your changes, then Update.");
+        toast("Loaded for editing — make your changes, then click Update Contract.");
         window.scrollTo({top:0, behavior:"smooth"});
       });
     });
