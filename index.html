@@ -100,6 +100,7 @@
       transition:left .18s ease;
     }
     .app:not(.sidebar-collapsed) .desktop-sidebar-toggle{ left:250px; }
+    .app main{ padding-top:64px; }
   }
 
   @media (max-width: 860px){
@@ -241,6 +242,42 @@
     #printArea, #printArea *{visibility:visible;}
     #printArea{position:absolute; left:0; top:0; width:100%;}
   }
+
+  /* ---------- dispatch / summary ---------- */
+  .card-title{font-family:var(--font-display); font-size:16px; font-weight:600; margin:0 0 10px;}
+  .two-col .card + .card{margin-top:0;}
+  .toolbar{display:flex; gap:12px; align-items:flex-end; flex-wrap:wrap; margin-bottom:16px;}
+  .toolbar .field{margin:0; min-width:140px;}
+  .toolbar-actions{margin-left:auto; display:flex; gap:10px; flex-wrap:wrap;}
+  .stat-grid{display:grid; grid-template-columns:repeat(4,1fr); gap:14px; margin-bottom:16px;}
+  .stat{background:var(--surface); border:1px solid var(--border); border-radius:var(--radius); padding:14px 16px;}
+  .stat span{font-size:12px; color:var(--ink-muted);}
+  .stat b{display:block; font-family:var(--font-display); font-size:24px; margin-top:3px;}
+  @media (max-width:760px){ .stat-grid{grid-template-columns:1fr 1fr;} .toolbar-actions{margin-left:0;} }
+  .table-scroll{overflow-x:auto;}
+  .table-scroll table{min-width:980px; font-size:12.5px;}
+  .table-scroll td, .table-scroll th{padding:8px 7px;}
+  .num{text-align:right; font-variant-numeric:tabular-nums; white-space:nowrap;}
+  .mono{font-family:var(--font-mono);}
+  .neg{color:var(--danger);}
+  .bar{height:9px; background:var(--surface-alt); border-radius:6px; overflow:hidden; margin:8px 0 4px;}
+  .bar i{display:block; height:100%; background:var(--deep);}
+  .dinfo{background:var(--surface-alt); border:1px solid var(--border); border-radius:9px; padding:14px 16px; margin-bottom:16px;}
+  .dinfo-row{display:flex; justify-content:space-between; gap:12px; font-size:12.5px;}
+  .spill{display:inline-block; font-size:11.5px; font-weight:600; border-radius:20px; padding:2px 10px; white-space:nowrap;}
+  .spill.run{background:#E4E9F6; color:#2E3A63;} .spill.done{background:#E3EFE4; color:#3F6B45;} .spill.exp{background:#F6E7E5; color:#A23B3B;}
+  input.mini, select.mini{width:100%; min-width:64px; padding:5px 7px; font-size:12.5px; border:1px solid transparent; border-radius:6px; background:transparent; color:var(--ink);}
+  input.mini:hover, select.mini:hover{border-color:var(--border); background:var(--surface);}
+  input.mini:focus, select.mini:focus{border-color:var(--accent); background:var(--surface);}
+  label.checkline{font-weight:500;}
+  .table-scroll td, .table-scroll th{padding:8px 5px;}
+  .srow{background:hsl(var(--h) 60% 93%);}
+  @media (prefers-color-scheme: dark){ .srow{background:hsl(var(--h) 22% 20%);} }
+  :root[data-theme="dark"] .srow{background:hsl(var(--h) 22% 20%);}
+  :root[data-theme="light"] .srow{background:hsl(var(--h) 60% 93%);}
+  .calc-row{display:flex; justify-content:space-between; gap:12px; padding:8px 0; border-bottom:1px solid var(--border); font-size:13.5px;}
+  .calc-row:last-child{border-bottom:none;}
+  .calc-row.total{font-weight:700; font-size:16px;}
 </style>
 </head>
 <body>
@@ -270,6 +307,9 @@
       <button class="nav-btn" data-view="sellers">🧵 Sellers <span class="nav-count" id="countSellers"></span></button>
       <button class="nav-btn" data-view="buyers">🛒 Buyers <span class="nav-count" id="countBuyers"></span></button>
       <button class="nav-btn" data-view="history">📚 Contract History <span class="nav-count" id="countHistory"></span></button>
+      <button class="nav-btn" data-view="dispatch">🚚 New Dispatch</button>
+      <button class="nav-btn" data-view="dispdetail">📋 Daily Dispatch Detail</button>
+      <button class="nav-btn" data-view="summary">📊 Summary Report</button>
       <button class="nav-btn" data-view="company">🏷️ My Brokerage</button>
     </nav>
     <div id="installWrap" style="display:none; padding:14px 6px 0;">
@@ -532,6 +572,101 @@
       </div>
     </section>
 
+    <!-- NEW DISPATCH -->
+    <section class="view" id="view-dispatch">
+      <div class="view-head">
+        <h1 class="view-title" id="dispTitle">New Dispatch</h1>
+        <p class="view-desc">Pick a contract and enter how many bags are going out. The amounts are worked out for you, and the Daily Dispatch Detail and Summary Report update by themselves. Invoice numbers can be added later in the Daily Dispatch Detail.</p>
+      </div>
+      <div class="two-col">
+        <div class="card">
+          <div class="field combo">
+            <label for="dContractSearch">Contract</label>
+            <input type="text" id="dContractSearch" autocomplete="off" placeholder="Type a contract number, seller, buyer or count…">
+            <input type="hidden" id="dContract">
+            <div class="combo-list" id="dContractList"></div>
+            <div class="hint">Only running contracts are listed.</div>
+          </div>
+          <div id="dContractInfo" style="display:none;"></div>
+          <div class="grid2">
+            <div class="field"><label for="dDate">Dispatch date</label><input type="date" id="dDate"></div>
+            <div class="field"><label for="dBags">Bags dispatching now</label><input type="number" id="dBags" min="0" step="any" inputmode="decimal"><div class="hint" id="dBagsHint"></div></div>
+          </div>
+          <div id="dExtra" class="grid3" style="display:none;">
+            <div class="field"><label for="dInvoice">Invoice #</label><input type="text" id="dInvoice"></div>
+            <div class="field"><label for="dBill">Bill #</label><input type="text" id="dBill"></div>
+            <div class="field"><label for="dChq">Cheque #</label><input type="text" id="dChq"></div>
+          </div>
+          <div class="field"><label class="checkline"><input type="checkbox" id="dReturn"> <span>This is a <b>return</b> of goods (takes the bags back off the dispatched total)</span></label></div>
+          <div class="field"><label class="checkline"><input type="checkbox" id="dGst" checked> <span id="dGstLabel">Add GST</span></label></div>
+          <div class="field"><label class="checkline"><input type="checkbox" id="dWht"> <span id="dWhtLabel">Deduct withholding tax</span></label></div>
+          <div class="field" style="max-width:280px;"><label for="dOverride">Amount (optional)</label><input type="number" id="dOverride" min="0" step="any" inputmode="decimal"><div class="hint">Leave blank to calculate it from the bags and rate.</div></div>
+          <div class="btn-row">
+            <button class="btn btn-primary" id="btnDispSave">Save dispatch</button>
+            <button class="btn" id="btnDispSaveAdd">Save &amp; add another</button>
+            <button class="btn btn-ghost" id="btnDispCancel" style="display:none;">Cancel</button>
+          </div>
+        </div>
+        <div>
+          <div class="card" style="margin-bottom:16px;">
+            <div class="card-title">Amount (calculated)</div>
+            <div id="dCalc"></div>
+          </div>
+          <div class="card">
+            <div class="card-title">Earlier dispatches on this contract</div>
+            <div id="dEarlier"></div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- DAILY DISPATCH DETAIL -->
+    <section class="view" id="view-dispdetail">
+      <div class="view-head">
+        <h1 class="view-title">Daily Dispatch Detail</h1>
+        <p class="view-desc">Every dispatch, filtered however you like. Invoice, bill and cheque numbers can be typed straight into the table. Download it as an Excel sheet in your usual layout.</p>
+      </div>
+      <div class="toolbar">
+        <div class="field"><label for="ddFrom">From</label><input type="date" id="ddFrom"></div>
+        <div class="field"><label for="ddTo">To</label><input type="date" id="ddTo"></div>
+        <div class="field"><label for="ddSeller">Seller</label><select id="ddSeller"><option value="">All sellers</option></select></div>
+        <div class="field"><label for="ddBuyer">Buyer</label><select id="ddBuyer"><option value="">All buyers</option></select></div>
+        <div class="field"><label for="ddSearch">Search</label><input type="text" id="ddSearch" placeholder="Contract, invoice, count…"></div>
+        <div class="toolbar-actions">
+          <button class="btn btn-accent" id="btnDispExcel">⬇ Download Excel</button>
+          <button class="btn btn-primary" id="btnDispNew">＋ New dispatch</button>
+        </div>
+      </div>
+      <div class="card" style="padding:8px 10px 12px;">
+        <div class="hint" id="ddCount" style="padding:8px 6px 4px;"></div>
+        <div class="table-scroll" id="dispTableWrap"></div>
+      </div>
+    </section>
+
+    <!-- SUMMARY REPORT -->
+    <section class="view" id="view-summary">
+      <div class="view-head">
+        <h1 class="view-title">Summary Report</h1>
+        <p class="view-desc">Built automatically from your contracts and dispatches. Booked, dispatched and balance bags are always up to date; only the remarks are typed by you.</p>
+      </div>
+      <div class="stat-grid" id="sumStats"></div>
+      <div class="toolbar">
+        <div class="field"><label for="smStatus">Status</label>
+          <select id="smStatus"><option value="Running" selected>Running</option><option value="">All statuses</option><option value="Completed">Completed</option><option value="Expired">Expired</option></select></div>
+        <div class="field"><label for="smSeller">Seller</label><select id="smSeller"><option value="">All sellers</option></select></div>
+        <div class="field"><label for="smSearch">Search</label><input type="text" id="smSearch" placeholder="Contract, buyer, count…"></div>
+        <div class="toolbar-actions">
+          <button class="btn" id="btnSumImport">📥 Import contracts from Excel</button>
+          <button class="btn btn-accent" id="btnSumExcel">⬇ Download Excel</button>
+        </div>
+      </div>
+      <input type="file" id="sumImportFile" accept=".xlsx,.xls,.csv" style="display:none;">
+      <div class="card" style="padding:8px 10px 12px;">
+        <div class="hint" id="smCount" style="padding:8px 6px 4px;"></div>
+        <div class="table-scroll" id="sumTableWrap"></div>
+      </div>
+    </section>
+
     <!-- COMPANY -->
     <section class="view" id="view-company">
       <div class="view-head">
@@ -605,9 +740,24 @@
           <input type="number" id="cStartRef" min="1" step="1" placeholder="e.g. 1001">
           <div class="hint">New contracts auto-number from here. Only affects the very next number if you haven't saved any contracts yet — once you have history, numbering continues after your highest saved reference either way.</div>
         </div>
+        <div class="field" style="max-width:280px;">
+          <label for="cWhtRate">Withholding tax rate (%)</label>
+          <input type="number" id="cWhtRate" min="0" step="any" placeholder="1">
+          <div class="hint">Used on dispatches when "Deduct withholding tax" is ticked. Leave blank for 1%.</div>
+        </div>
         <div class="btn-row">
           <button class="btn btn-primary" id="btnSaveCompany">Save brokerage details</button>
         </div>
+      </div>
+      <div class="card" style="margin-top:16px;">
+        <div class="card-title">Backup &amp; restore</div>
+        <p class="hint" style="margin:0 0 12px;">Your data is kept on a free database that does not make backups for you. Download a backup file now and then (for example every Friday) and keep it somewhere safe, like your email or Google Drive.</p>
+        <div class="btn-row">
+          <button class="btn btn-primary" id="btnBackup">⬇ Download backup</button>
+          <button class="btn" id="btnRestore">⬆ Restore from backup…</button>
+        </div>
+        <input type="file" id="restoreFile" accept=".json,application/json" style="display:none;">
+        <div class="hint" id="lastBackupInfo" style="margin-top:10px;"></div>
       </div>
     </section>
 
@@ -634,51 +784,63 @@
 
 <script>
 /* ---------------------------------------------------------------------
-   Standalone backend shim.
-   Reproduces the same db.collection()/db.doc() and downloads.save()
-   interface the app was originally written against, but backed by our
-   own /api routes (Upstash Redis) instead of Claude's runtime capabilities.
-   Other users' changes show up within POLL_MS of being saved.
+   Standalone backend shim (same db.collection()/db.doc() interface the app
+   was written against), backed by our own /api routes.
+
+   Light on data: instead of re-downloading everything every few seconds, each
+   open device asks /api/version "has anything changed?" every 30 seconds (and
+   only while the screen is visible), then re-downloads ONLY what changed.
 --------------------------------------------------------------------- */
 (function(){
   "use strict";
-  const POLL_MS = 7000;
+  const POLL_MS = 30000;
+  const lastSeen = {};          // name -> version of the data we currently hold
+  const registry = {};          // name -> { refetch }
+
+  async function getJson(url, opts){
+    const res = await fetch(url, Object.assign({ cache: "no-store" }, opts || {}));
+    if(!res.ok) throw new Error("Request failed: " + res.status);
+    const ver = res.headers.get("x-version");
+    return { data: await res.json(), ver: ver == null ? null : Number(ver) };
+  }
+  async function send(url, method, body){
+    const res = await fetch(url, { method, headers: {"Content-Type":"application/json"}, body: body === undefined ? undefined : JSON.stringify(body) });
+    if(!res.ok) throw new Error(method + " failed: " + res.status);
+    return res.json();
+  }
 
   function makeCollection(name){
     let listeners = [];
-    let polling = null;
     async function fetchAll(){
-      const res = await fetch("/api/" + name);
-      if(!res.ok) throw new Error("Request failed: " + res.status);
-      const arr = await res.json();
-      const snap = { docs: arr.map(item => ({ id: item.id, data: () => item })) };
+      const { data, ver } = await getJson("/api/" + name);
+      lastSeen[name] = ver;
+      const snap = { docs: data.map(item => ({ id: item.id, data: () => item })) };
       listeners.forEach(cb => cb(snap));
     }
+    registry[name] = { refetch: fetchAll };
     return {
       onSnapshot(cb, errCb){
         listeners.push(cb);
         fetchAll().catch(e => errCb && errCb(e));
-        if(!polling) polling = setInterval(() => fetchAll().catch(()=>{}), POLL_MS);
       },
       async add(data){
-        const res = await fetch("/api/" + name, { method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify(data) });
-        if(!res.ok) throw new Error("Save failed");
-        const created = await res.json();
+        const created = await send("/api/" + name, "POST", data);
         await fetchAll();
         return { id: created.id };
       },
+      async addMany(items){
+        const ids = [];
+        for(let i = 0; i < items.length; i += 50){
+          const out = await send("/api/" + name, "POST", { items: items.slice(i, i + 50) });
+          ids.push(...out.ids);
+        }
+        await fetchAll();
+        return ids;
+      },
       doc(id){
         return {
-          async set(data){
-            const res = await fetch("/api/" + name + "/" + encodeURIComponent(id), { method:"PUT", headers:{"Content-Type":"application/json"}, body: JSON.stringify(data) });
-            if(!res.ok) throw new Error("Save failed");
-            await fetchAll();
-          },
-          async delete(){
-            const res = await fetch("/api/" + name + "/" + encodeURIComponent(id), { method:"DELETE" });
-            if(!res.ok) throw new Error("Delete failed");
-            await fetchAll();
-          }
+          async set(data){ await send("/api/" + name + "/" + encodeURIComponent(id), "PUT", data); await fetchAll(); },
+          async delete(){ await send("/api/" + name + "/" + encodeURIComponent(id), "DELETE"); await fetchAll(); }
         };
       }
     };
@@ -686,37 +848,50 @@
 
   function makeCompanyDoc(){
     let listeners = [];
-    let polling = null;
     async function fetchIt(){
-      const res = await fetch("/api/company");
-      if(!res.ok) throw new Error("Request failed: " + res.status);
-      const data = await res.json();
+      const { data, ver } = await getJson("/api/company");
+      lastSeen.company = ver;
       const exists = !!(data && Object.keys(data).length);
       listeners.forEach(cb => cb({ exists, data: () => data }));
     }
+    registry.company = { refetch: fetchIt };
     return {
       onSnapshot(cb, errCb){
         listeners.push(cb);
         fetchIt().catch(e => errCb && errCb(e));
-        if(!polling) polling = setInterval(() => fetchIt().catch(()=>{}), POLL_MS);
       },
-      async set(data){
-        const res = await fetch("/api/company", { method:"PUT", headers:{"Content-Type":"application/json"}, body: JSON.stringify(data) });
-        if(!res.ok) throw new Error("Save failed");
-        await fetchIt();
-      }
+      async set(data){ await send("/api/company", "PUT", data); await fetchIt(); }
     };
   }
 
   // One shared instance per collection, so a save immediately refreshes the screens listening to it.
   const collectionCache = {};
   let companyDocInstance = null;
+
+  let ticking = false;
+  async function tick(){
+    if(document.hidden || ticking) return;
+    ticking = true;
+    try{
+      const versions = (await getJson("/api/version")).data;
+      for(const name of Object.keys(registry)){
+        if(versions[name] !== undefined && versions[name] !== lastSeen[name]){
+          try{ await registry[name].refetch(); }catch(_){}
+        }
+      }
+    }catch(_){ /* offline or a hiccup: try again next time */ }
+    ticking = false;
+  }
+  setInterval(tick, POLL_MS);
+  document.addEventListener("visibilitychange", () => { if(!document.hidden) tick(); });
+
   window.__dbShim = {
     collection(name){ return collectionCache[name] || (collectionCache[name] = makeCollection(name)); },
     doc(path){
       if(path === "company/profile") return companyDocInstance || (companyDocInstance = makeCompanyDoc());
       throw new Error("Unsupported doc path: " + path);
-    }
+    },
+    async refreshAll(){ for(const name of Object.keys(registry)){ try{ await registry[name].refetch(); }catch(_){} } }
   };
 
   window.__downloadsShim = {
@@ -732,7 +907,6 @@
           }
         }catch(err){
           if(err && err.name === "AbortError") return { status: "cancelled" };
-          // anything else (e.g. share not allowed here): fall through to a normal download
         }
       }
       const url = URL.createObjectURL(blob);
@@ -788,7 +962,7 @@
   function esc(s){ return String(s==null?"":s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;"); }
   function nl2br(s){ return esc(s).replace(/\n/g,"<br>"); }
   function money(n){ const v = Number(n); if(isNaN(v)) return "0"; return v.toLocaleString("en-PK", {maximumFractionDigits:2}); }
-  function todayISO(){ const d = new Date(); return d.toISOString().slice(0,10); }
+  function todayISO(){ const d = new Date(); d.setMinutes(d.getMinutes() - d.getTimezoneOffset()); return d.toISOString().slice(0,10); }
   function fmtDate(iso){
     if(!iso) return "";
     const d = new Date(iso+"T00:00:00");
@@ -799,13 +973,15 @@
     const t = $("toast"); t.textContent = msg; t.classList.add("show");
     clearTimeout(toast._h); toast._h = setTimeout(()=>t.classList.remove("show"), 2400);
   }
-  function confirmDialog(title, msg){
+  function confirmDialog(title, msg, okLabel, danger){
     return new Promise((resolve)=>{
       $("confirmTitle").textContent = title;
       $("confirmMsg").textContent = msg;
       const dlg = $("confirmDialog");
-      dlg.showModal();
       const ok = $("confirmOk"), cancel = $("confirmCancel");
+      ok.textContent = okLabel || "Delete";
+      ok.className = (danger === false) ? "btn btn-primary" : "btn btn-danger";
+      dlg.showModal();
       function cleanup(v){ dlg.close(); ok.removeEventListener("click", onOk); cancel.removeEventListener("click", onCancel); resolve(v); }
       function onOk(){ cleanup(true); }
       function onCancel(){ cleanup(false); }
@@ -853,6 +1029,7 @@
       document.querySelectorAll(".view").forEach(v=>v.classList.remove("active"));
       btn.classList.add("active");
       $("view-"+btn.dataset.view).classList.add("active");
+      onViewShown(btn.dataset.view);
       closeSidebar();
     });
   });
@@ -880,6 +1057,7 @@
     subscribeBuyers();
     subscribeContracts();
     subscribeQualities();
+    subscribeDispatches();
   }
 
   function subscribeQualities(){
@@ -938,6 +1116,7 @@
       $("countSellers").textContent = sellers.length || "";
       renderSellers();
       syncComboDisplay("Seller");
+      refreshDispatchInfo();
       updatePartiesBanner();
     }, (err)=>{ console.error("sellers sub error", err); });
   }
@@ -959,6 +1138,7 @@
       $("countHistory").textContent = contracts.length || "";
       renderHistory();
       refreshContractNoIfAuto();
+      renderSummary(); renderDispDetail(); refreshDispatchInfo();
     }, (err)=>{ console.error("contracts sub error", err); });
   }
 
@@ -1037,6 +1217,7 @@
     $("cWeighment").value = company.weighment || DEFAULTS.weighment;
     $("cConditions").value = company.conditions || DEFAULTS.conditions;
     $("cStartRef").value = company.startingRef || "";
+    $("cWhtRate").value = (company.whtRate === null || company.whtRate === undefined) ? "" : company.whtRate;
     setLogoDraft(company.logo || "", company.logoAspect || null);
     $("cLogoWatermark").checked = company.logoWatermark !== false;
   }
@@ -1121,6 +1302,7 @@
       weighment: $("cWeighment").value.trim(),
       conditions: $("cConditions").value.trim(),
       startingRef: $("cStartRef").value.trim() ? Number($("cStartRef").value.trim()) : null,
+      whtRate: $("cWhtRate").value.trim() !== "" ? Number($("cWhtRate").value.trim()) : null,
       logo: logoDraft,
       logoAspect: logoDraft ? logoDraftAspect : null,
       logoWatermark: $("cLogoWatermark").checked,
@@ -1186,6 +1368,7 @@
           <div class="field"><label>CNIC / NTN</label><input type="text" id="${prefix}Cnic" value="${esc(v.cnic)}"></div>
           <div class="field"><label>Bank Details (optional)</label><input type="text" id="${prefix}Bank" value="${esc(v.bank)}"></div>
         </div>
+        ${prefix === "s" ? `<div class="field"><label class="checkline"><input type="checkbox" id="sWht" ${v.wht ? "checked" : ""}> <span>Deduct withholding tax on this seller's dispatches by default</span></label></div>` : ""}
         <div class="btn-row">
           <button class="btn btn-primary" id="${prefix}Save">${existing ? "Save changes" : "Add"}</button>
           <button class="btn btn-ghost" id="${prefix}Cancel">Cancel</button>
@@ -1194,7 +1377,7 @@
   }
 
   function readPartyForm(prefix){
-    return {
+    const out = {
       name: $(prefix+"Name").value.trim(),
       contact: $(prefix+"Contact").value.trim(),
       address: $(prefix+"Address").value.trim(),
@@ -1202,6 +1385,8 @@
       cnic: $(prefix+"Cnic").value.trim(),
       bank: $(prefix+"Bank").value.trim(),
     };
+    if(prefix === "s") out.wht = $("sWht").checked;
+    return out;
   }
 
   $("btnAddSeller").addEventListener("click", ()=>{
@@ -1608,9 +1793,10 @@
   // The letterhead should always show your current brokerage details, not whatever was
   // saved with an older contract. Falls back to the contract's own copy, then the starter details.
   function companyWithoutLogo(){
-    const copy = Object.assign({}, company);
-    delete copy.logo; delete copy.logoAspect; delete copy.logoWatermark;
-    return copy;
+    // Only the letterhead basics are kept with each contract (keeps every saved contract small).
+    const out = {};
+    ["name","address","phone","email","ntn","license"].forEach(k=>{ if(company[k]) out[k] = company[k]; });
+    return out;
   }
   function effectiveCompany(d){
     const merged = Object.assign({}, COMPANY_SEED, (d && d.companySnap) || {});
@@ -1967,10 +2153,10 @@
         <td>${esc(fmtDate(c.date))}</td>
         <td>${esc(c.sellerSnap && c.sellerSnap.name)}</td>
         <td>${esc(c.buyerSnap && c.buyerSnap.name)}</td>
-        <td>${esc(c.currency)} ${money(c.totalAmount)}</td>
+        <td>${c.imported ? "—" : esc(c.currency) + " " + money(c.totalAmount)}</td>
         <td><div class="row-actions">
-          <button class="btn btn-sm btn-ghost" data-view-contract="${c.id}">View</button>
-          <button class="btn btn-sm btn-ghost" data-edit-contract="${c.id}">Edit</button>
+          ${c.imported ? `<span class="spill run" title="Brought in from your Excel summary — it has no Sales/Purchase documents">Imported</span>` : `<button class="btn btn-sm btn-ghost" data-view-contract="${c.id}">View</button>
+          <button class="btn btn-sm btn-ghost" data-edit-contract="${c.id}">Edit</button>`}
           <button class="btn btn-sm btn-danger" data-delete-contract="${c.id}">Delete</button>
         </div></td>
       </tr>`).join("")}
@@ -2017,6 +2203,719 @@
       });
     });
   }
+
+  // =====================================================================
+  //  DISPATCHES · DAILY DISPATCH DETAIL · SUMMARY REPORT · BACKUP
+  // =====================================================================
+  let dispatches = [];
+  let editingDispatchId = null;
+  let pendingDispRender = false, pendingSumRender = false;
+
+  const MONTHS_SHORT = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+  function fmtShort(iso){
+    const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(iso || "");
+    return m ? `${Number(m[3])}-${MONTHS_SHORT[Number(m[2]) - 1]}-${m[1].slice(2)}` : (iso || "");
+  }
+  function pad2(n){ return String(n).padStart(2, "0"); }
+  function r2(n){ return Math.round((Number(n) || 0) * 100) / 100; }
+  function fmtNum(n){
+    n = Number(n) || 0;
+    const t = Math.abs(n).toLocaleString("en-PK", { maximumFractionDigits: 2 });
+    return n < 0 ? "−" + t : t;
+  }
+  function isViewActive(name){ const el = $("view-" + name); return !!(el && el.classList.contains("active")); }
+  function noRound(n){ return n === 0 ? 0 : n; }   // avoids "-0"
+
+  function showView(name){
+    document.querySelectorAll(".nav-btn").forEach(b => b.classList.toggle("active", b.dataset.view === name));
+    document.querySelectorAll(".view").forEach(v => v.classList.remove("active"));
+    $("view-" + name).classList.add("active");
+    onViewShown(name);
+    window.scrollTo({ top: 0 });
+  }
+  function onViewShown(name){
+    if(name === "dispatch") refreshDispatchForm();
+    if(name === "dispdetail") renderDispDetail();
+    if(name === "summary") renderSummary();
+    if(name === "company") showLastBackup();
+  }
+
+  // ---------- contract helpers ----------
+  function contractNo(c){ return (c.ref || "") + "-" + yy(c.date); }
+  function sellerNameOf(c){ return (c.sellerSnap && c.sellerSnap.name) || ""; }
+  function buyerNameOf(c){ return (c.buyerSnap && c.buyerSnap.name) || ""; }
+  function bagWeightLbs(c){ const w = Number(c.bagWeight) || 100; return c.bagWeightUnit === "kg" ? w * LBS_PER_KG : w; }
+  function bookBags(c){
+    const q = Number(c.quantity) || 0;
+    if(c.unit === "Kg") return q / (bagWeightLbs(c) / LBS_PER_KG);
+    if(c.unit === "Lbs") return q / bagWeightLbs(c);
+    return q;
+  }
+  // Value of `bags` bags at the contract's rate (before GST). null = can't convert (e.g. rate per cone).
+  function baseAmountForBags(c, bags){
+    const rate = Number(c.rate) || 0;
+    if(!bags || !rate) return 0;
+    const w = bagWeightLbs(c);
+    switch(c.rateBasis){
+      case "bag":   return bags * rate;
+      case "10lbs": return bags * w / 10 * rate;
+      case "lbs":   return bags * w * rate;
+      case "kg":    return bags * w / LBS_PER_KG * rate;
+      case "maund": return bags * w / LBS_PER_KG / KG_PER_MAUND * rate;
+      default:      return null;
+    }
+  }
+  function ratePerBag(c){ return baseAmountForBags(c, 1); }
+  function signedBags(d){ return (d.isReturn ? -1 : 1) * (Number(d.bags) || 0); }
+  function whtRate(){
+    const r = company && company.whtRate;
+    return (r === null || r === undefined || r === "") ? 1 : (Number(r) || 0);
+  }
+  function sellerRecordFor(c){
+    if(c.sellerId){ const s = sellers.find(x => x.id === c.sellerId); if(s) return s; }
+    const n = sellerNameOf(c).trim().toLowerCase();
+    return n ? (sellers.find(x => (x.name || "").trim().toLowerCase() === n) || null) : null;
+  }
+  function dispatchTotalsMap(){
+    const m = {};
+    dispatches.forEach(d => { m[d.contractId] = (m[d.contractId] || 0) + signedBags(d); });
+    return m;
+  }
+  function contractStats(c, map){
+    const book = bookBags(c);
+    const disp = (Number(c.openingDispatched) || 0) + ((map || {})[c.id] || 0);
+    const bal = book - disp;
+    let status = "Running";
+    if(c.statusOverride === "expired") status = "Expired";
+    else if(bal <= 0.0001) status = "Completed";
+    return { book: r2(book), disp: r2(disp), bal: r2(bal), status };
+  }
+  const HUES = [140, 25, 42, 55, 200, 280, 335, 170, 10, 230];
+  function sellerHueMap(){
+    const names = [...new Set(contracts.map(sellerNameOf).filter(Boolean))].sort((a, b) => a.localeCompare(b));
+    const map = {};
+    names.forEach((n, i) => { map[n] = HUES[i % HUES.length]; });
+    return map;
+  }
+  function deferIfTyping(wrapId, flagSetter){
+    const a = document.activeElement;
+    if(a && a.classList && a.classList.contains("mini") && $(wrapId).contains(a)){ flagSetter(); return true; }
+    return false;
+  }
+
+  // ---------- subscribe ----------
+  function subscribeDispatches(){
+    db.collection("dispatches").onSnapshot((qs)=>{
+      dispatches = qs.docs.map(d => ({ id: d.id, ...d.data() }));
+      renderDispDetail(); renderSummary(); refreshDispatchInfo();
+    }, (err)=>{ console.error("dispatches sub error", err); });
+  }
+
+  // ---------- Excel helper ----------
+  async function downloadXlsx(filename, aoa, opts){
+    if(!window.XLSX){ toast("The Excel library didn't load — check your connection."); return; }
+    opts = opts || {};
+    const ws = XLSX.utils.aoa_to_sheet(aoa, { cellDates: true });
+    const ref = ws["!ref"];
+    if(ref && opts.dateCols){
+      const range = XLSX.utils.decode_range(ref);
+      for(let r = range.s.r; r <= range.e.r; r++){
+        opts.dateCols.forEach(col => {
+          const cell = ws[XLSX.utils.encode_cell({ r, c: col })];
+          if(cell && cell.t === "d") cell.z = opts.dateFormat || "dd.mm.yyyy";
+        });
+      }
+    }
+    if(opts.widths) ws["!cols"] = opts.widths.map(w => ({ wch: w }));
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, opts.sheetName || "Sheet1");
+    const out = XLSX.write(wb, { bookType: "xlsx", type: "array", cellDates: true });
+    await saveFile(filename, new Blob([out], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" }));
+  }
+  function isoToDate(iso){ return /^\d{4}-\d{2}-\d{2}/.test(iso || "") ? new Date(iso.slice(0, 10) + "T12:00:00") : ""; }
+
+  // =====================================================================
+  //  NEW DISPATCH
+  // =====================================================================
+  function selectedDispatchContract(){ return contracts.find(x => x.id === $("dContract").value) || null; }
+  function contractLabel(c){ return `${contractNo(c)} · ${sellerNameOf(c)} → ${buyerNameOf(c)}`; }
+  function runningContracts(){
+    const map = dispatchTotalsMap();
+    return contracts.filter(c => contractStats(c, map).status === "Running");
+  }
+
+  function renderDContractList(){
+    const q = $("dContractSearch").value.trim().toLowerCase();
+    let pool = runningContracts().sort((a, b) => (b.date || "").localeCompare(a.date || ""));
+    if(q) pool = pool.filter(c => (contractNo(c) + " " + sellerNameOf(c) + " " + buyerNameOf(c) + " " + (c.quality || "")).toLowerCase().includes(q));
+    const listEl = $("dContractList");
+    const matches = pool.slice(0, 60);
+    listEl.innerHTML = matches.length
+      ? matches.map(c => `<div class="combo-item" data-id="${c.id}"><b>${esc(contractNo(c))}</b> · ${esc(sellerNameOf(c))} → ${esc(buyerNameOf(c))}<div class="hint" style="margin:0;">${esc(c.quality || "")}</div></div>`).join("")
+      : `<div class="combo-empty">${contracts.length ? "No running contracts match." : "No contracts yet — generate one or import your summary sheet first."}</div>`;
+    listEl.querySelectorAll("[data-id]").forEach(el => {
+      el.addEventListener("mousedown", (e)=>{ e.preventDefault(); selectDContract(el.dataset.id); });
+    });
+    listEl.classList.add("show");
+  }
+  function selectDContract(id){
+    const c = contracts.find(x => x.id === id);
+    $("dContract").value = id || "";
+    $("dContractSearch").value = c ? contractLabel(c) : "";
+    $("dContractList").classList.remove("show");
+    onDContractChanged(true);
+  }
+  $("dContractSearch").addEventListener("focus", renderDContractList);
+  $("dContractSearch").addEventListener("input", ()=>{
+    $("dContract").value = "";
+    renderDContractList();
+    onDContractChanged(false);
+  });
+  $("dContractSearch").addEventListener("blur", ()=>{
+    setTimeout(()=>{
+      $("dContractList").classList.remove("show");
+      if(!$("dContract").value){
+        const t = $("dContractSearch").value.trim().toLowerCase();
+        const match = t && runningContracts().find(c => contractNo(c).toLowerCase() === t || contractLabel(c).toLowerCase() === t);
+        if(match) selectDContract(match.id); else $("dContractSearch").value = "";
+      }
+    }, 150);
+  });
+
+  function onDContractChanged(setDefaults){
+    const c = selectedDispatchContract();
+    if(c && setDefaults){
+      const sel = sellerRecordFor(c);
+      $("dWht").checked = !!(sel && sel.wht);
+      $("dGst").checked = c.gst !== false;
+      $("dOverride").value = "";
+    }
+    renderDispatchInfo(); renderDispatchCalc();
+  }
+
+  function dispatchBalanceInfo(c){
+    const map = dispatchTotalsMap();
+    let disp = (Number(c.openingDispatched) || 0) + (map[c.id] || 0);
+    if(editingDispatchId){
+      const ed = dispatches.find(x => x.id === editingDispatchId);
+      if(ed && ed.contractId === c.id) disp -= signedBags(ed);
+    }
+    const book = bookBags(c);
+    return { book: r2(book), disp: r2(disp), bal: r2(book - disp) };
+  }
+
+  function renderDispatchInfo(){
+    const c = selectedDispatchContract();
+    const box = $("dContractInfo");
+    if(!c){
+      box.style.display = "none"; box.innerHTML = "";
+      $("dEarlier").innerHTML = `<div class="hint">Choose a contract to see its earlier dispatches.</div>`;
+      return;
+    }
+    const st = dispatchBalanceInfo(c);
+    const pct = st.book > 0 ? Math.max(0, Math.min(100, st.disp * 100 / st.book)) : 0;
+    const rate = c.rate ? `${money(c.rate)} per ${rateBasisLabel(c.rateBasis)}${c.gst === false ? "" : " +GST"}` : "—";
+    box.style.display = "block";
+    box.innerHTML = `<div class="dinfo">
+      <div style="font-weight:700;">${esc(c.quality || "")}</div>
+      <div class="hint" style="margin:2px 0 0;">Rate ${esc(rate)}${c.paymentTerms ? " · " + esc(c.paymentTerms) : ""}</div>
+      <div class="bar"><i style="width:${pct}%"></i></div>
+      <div class="dinfo-row"><span>Booked <b>${fmtNum(st.book)}</b></span><span>Dispatched so far <b>${fmtNum(st.disp)}</b></span><span>Balance <b>${fmtNum(st.bal)}</b></span></div>
+    </div>`;
+    const mine = dispatches.filter(d => d.contractId === c.id).sort((a, b) => (a.date || "").localeCompare(b.date || ""));
+    const opening = Number(c.openingDispatched) || 0;
+    let rows = "";
+    if(opening) rows += `<tr><td>Before the app</td><td class="num">${fmtNum(opening)}</td><td></td></tr>`;
+    rows += mine.map(d => `<tr><td>${esc(fmtShort(d.date))}</td><td class="num ${d.isReturn ? "neg" : ""}">${d.isReturn ? "−" : ""}${fmtNum(d.bags)}</td><td class="mono">${esc(d.invoice || "—")}</td></tr>`).join("");
+    $("dEarlier").innerHTML = rows
+      ? `<table><thead><tr><th>Date</th><th class="num">Bags</th><th>Invoice #</th></tr></thead><tbody>${rows}</tbody></table>`
+      : `<div class="hint">No dispatches yet on this contract.</div>`;
+  }
+
+  function dispatchFigures(){
+    const c = selectedDispatchContract();
+    if(!c) return null;
+    const bags = Number($("dBags").value) || 0;
+    const sign = $("dReturn").checked ? -1 : 1;
+    const ovr = $("dOverride").value.trim();
+    let base = ovr !== "" ? Number(ovr) : baseAmountForBags(c, bags);
+    const needsManual = (base === null);
+    base = Math.round(base || 0);
+    const gstPct = Number(c.gstPct) || 18;
+    const gst = $("dGst").checked ? Math.round(base * gstPct / 100) : 0;
+    const whtPct = whtRate();
+    const wht = $("dWht").checked ? Math.round((base + gst) * whtPct / 100) : 0;
+    return { c, bags, sign, base, gst, wht, net: base + gst - wht, gstPct, whtPct, needsManual };
+  }
+
+  function renderDispatchCalc(){
+    $("dWhtLabel").textContent = `Deduct withholding tax (${whtRate()}%)`;
+    const f = dispatchFigures();
+    $("dGstLabel").textContent = f ? `Add GST (${f.gstPct}%)` : "Add GST";
+    if(!f){ $("dCalc").innerHTML = `<div class="hint">Choose a contract and enter the bags.</div>`; $("dBagsHint").textContent = ""; return; }
+    const s = f.sign, w = r2(bagWeightLbs(f.c));
+    const desc = f.needsManual
+      ? "This contract's rate can't be converted to bags — type the amount in the Amount box."
+      : `${fmtNum(f.bags)} bags × ${fmtNum(w)} lbs per bag${$("dOverride").value.trim() !== "" ? " (amount typed by you)" : ""}`;
+    $("dCalc").innerHTML = `<div class="hint" style="margin:0 0 6px;">${esc(desc)}</div>
+      <div class="calc-row"><span>Amount</span><span class="num">${fmtNum(noRound(s * f.base))}</span></div>
+      <div class="calc-row"><span>GST ${$("dGst").checked ? f.gstPct + "%" : "(not added)"}</span><span class="num">${fmtNum(noRound(s * f.gst))}</span></div>
+      <div class="calc-row"><span>Withholding tax ${$("dWht").checked ? f.whtPct + "%" : "(not deducted)"}</span><span class="num ${f.wht ? "neg" : ""}">${f.wht ? "− " + fmtNum(Math.abs(f.wht)) : "0"}</span></div>
+      <div class="calc-row total"><span>Net amount</span><span class="num">${fmtNum(noRound(s * f.net))}</span></div>`;
+    const st = dispatchBalanceInfo(f.c);
+    const after = r2(st.bal - s * f.bags);
+    $("dBagsHint").innerHTML = f.bags ? `Balance after this dispatch: <b class="${after < 0 ? "neg" : ""}">${fmtNum(after)} bags</b>${after < 0 ? " (over the booked quantity)" : ""}` : "";
+  }
+  ["dBags","dDate","dOverride"].forEach(id => $(id).addEventListener("input", renderDispatchCalc));
+  ["dReturn","dGst","dWht"].forEach(id => $(id).addEventListener("change", renderDispatchCalc));
+
+  function refreshDispatchInfo(){
+    if(!isViewActive("dispatch")) return;
+    renderDispatchInfo(); renderDispatchCalc();
+  }
+  function refreshDispatchForm(){
+    if(!$("dDate").value) $("dDate").value = todayISO();
+    renderDispatchInfo(); renderDispatchCalc();
+  }
+
+  function resetDispatchForm(keepContract){
+    editingDispatchId = null;
+    $("dispTitle").textContent = "New Dispatch";
+    $("dExtra").style.display = "none";
+    $("dBags").value = ""; $("dReturn").checked = false; $("dOverride").value = "";
+    $("dInvoice").value = ""; $("dBill").value = ""; $("dChq").value = "";
+    $("dDate").value = todayISO();
+    $("btnDispSave").textContent = "Save dispatch";
+    $("btnDispSaveAdd").style.display = "";
+    $("btnDispCancel").style.display = "none";
+    if(!keepContract){ $("dContract").value = ""; $("dContractSearch").value = ""; }
+    onDContractChanged(!keepContract);
+  }
+
+  function startEditDispatch(id){
+    const d = dispatches.find(x => x.id === id);
+    if(!d) return;
+    const c = contracts.find(x => x.id === d.contractId);
+    if(!c){ toast("The contract for this dispatch no longer exists. You can still type invoice, bill or cheque numbers into the table."); return; }
+    editingDispatchId = id;
+    showView("dispatch");
+    $("dispTitle").textContent = "Edit Dispatch";
+    $("dContract").value = c.id; $("dContractSearch").value = contractLabel(c);
+    $("dDate").value = d.date || todayISO();
+    $("dBags").value = d.bags;
+    $("dReturn").checked = !!d.isReturn;
+    $("dGst").checked = d.gstOn !== false;
+    $("dWht").checked = !!d.whtOn;
+    const calc = Math.round(baseAmountForBags(c, Number(d.bags) || 0) || 0);
+    $("dOverride").value = Math.abs(Number(d.amount) || 0) !== calc ? String(Math.abs(Number(d.amount) || 0)) : "";
+    $("dInvoice").value = d.invoice || ""; $("dBill").value = d.bill || ""; $("dChq").value = d.chq || "";
+    $("dExtra").style.display = "grid";
+    $("btnDispSave").textContent = "Update dispatch";
+    $("btnDispSaveAdd").style.display = "none";
+    $("btnDispCancel").style.display = "";
+    renderDispatchInfo(); renderDispatchCalc();
+  }
+
+  let savingDispatch = false;
+  async function saveDispatch(addAnother){
+    if(savingDispatch) return;
+    const f = dispatchFigures();
+    if(!f){ toast("Please choose a contract."); return; }
+    if(!(f.bags > 0)){ toast("Enter how many bags are going out."); return; }
+    if(f.needsManual){ toast("Type the amount in the Amount box — this contract's rate can't be converted to bags."); return; }
+    const st = dispatchBalanceInfo(f.c);
+    if(f.sign > 0 && f.bags > st.bal + 0.0001){
+      const ok = await confirmDialog("More than the balance", `This contract has only ${fmtNum(st.bal)} bags left, and you are dispatching ${fmtNum(f.bags)}. Save anyway?`, "Save anyway", false);
+      if(!ok) return;
+    }
+    const existing = editingDispatchId ? dispatches.find(x => x.id === editingDispatchId) : null;
+    const s = f.sign, c = f.c;
+    const rec = {
+      contractId: c.id, contractNo: contractNo(c), date: $("dDate").value || todayISO(),
+      bags: f.bags, isReturn: s < 0,
+      seller: sellerNameOf(c), buyer: buyerNameOf(c), quality: c.quality || "",
+      rate: c.rate || "", rateBasis: c.rateBasis || "",
+      gstOn: $("dGst").checked, gstPct: f.gstPct, whtOn: $("dWht").checked, whtPct: f.whtPct,
+      amount: noRound(s * f.base), gst: noRound(s * f.gst), wht: noRound(s * f.wht), net: noRound(s * f.net),
+      invoice: existing ? $("dInvoice").value.trim() : "",
+      bill: existing ? $("dBill").value.trim() : "",
+      chq: existing ? $("dChq").value.trim() : "",
+    };
+    savingDispatch = true;
+    $("btnDispSave").disabled = true; $("btnDispSaveAdd").disabled = true;
+    try{
+      if(existing){
+        const { id: _drop, ...rest } = existing;
+        await db.collection("dispatches").doc(existing.id).set({ ...rest, ...rec, createdAt: existing.createdAt || Date.now(), updatedAt: Date.now() });
+        toast("Dispatch updated.");
+        resetDispatchForm(false);
+        showView("dispdetail");
+      }else{
+        await db.collection("dispatches").add({ ...rec, createdAt: Date.now() });
+        const newBal = r2(st.bal - s * f.bags);
+        toast(`Dispatch saved. ${fmtNum(newBal)} bags left on ${contractNo(c)}.`);
+        resetDispatchForm(!!addAnother);
+      }
+    }catch(e){
+      console.error(e);
+      toast("Couldn't save the dispatch. Check your connection and try again.");
+    }
+    savingDispatch = false;
+    $("btnDispSave").disabled = false; $("btnDispSaveAdd").disabled = false;
+  }
+  $("btnDispSave").addEventListener("click", ()=>saveDispatch(false));
+  $("btnDispSaveAdd").addEventListener("click", ()=>saveDispatch(true));
+  $("btnDispCancel").addEventListener("click", ()=>{ resetDispatchForm(false); showView("dispdetail"); });
+
+  // =====================================================================
+  //  DAILY DISPATCH DETAIL
+  // =====================================================================
+  function firstOfMonthISO(){ const t = todayISO(); return t.slice(0, 8) + "01"; }
+  function fillOptions(sel, values, allLabel){
+    const prev = sel.value;
+    sel.innerHTML = `<option value="">${allLabel}</option>` + values.map(v => `<option value="${esc(v)}">${esc(v)}</option>`).join("");
+    if(values.includes(prev)) sel.value = prev;
+  }
+  function filteredDispatches(){
+    const from = $("ddFrom").value, to = $("ddTo").value, seller = $("ddSeller").value, buyer = $("ddBuyer").value;
+    const q = $("ddSearch").value.trim().toLowerCase();
+    return dispatches.filter(d => {
+      if(from && (d.date || "") < from) return false;
+      if(to && (d.date || "") > to) return false;
+      if(seller && d.seller !== seller) return false;
+      if(buyer && d.buyer !== buyer) return false;
+      if(q){
+        const hay = [d.contractNo, d.seller, d.buyer, d.quality, d.invoice, d.bill, d.chq].filter(Boolean).join(" ").toLowerCase();
+        if(!hay.includes(q)) return false;
+      }
+      return true;
+    }).sort((a, b) => (a.date || "").localeCompare(b.date || "") || (a.createdAt || 0) - (b.createdAt || 0));
+  }
+
+  function renderDispDetail(){
+    if(!isViewActive("dispdetail")) return;
+    if(deferIfTyping("dispTableWrap", () => { pendingDispRender = true; })) return;
+    pendingDispRender = false;
+    fillOptions($("ddSeller"), [...new Set(dispatches.map(d => d.seller).filter(Boolean))].sort(), "All sellers");
+    fillOptions($("ddBuyer"), [...new Set(dispatches.map(d => d.buyer).filter(Boolean))].sort(), "All buyers");
+    const rows = filteredDispatches();
+    $("ddCount").textContent = `Showing ${rows.length} dispatch${rows.length === 1 ? "" : "es"} of ${dispatches.length}`;
+    if(!rows.length){
+      $("dispTableWrap").innerHTML = `<div class="empty">${dispatches.length ? "No dispatches match these filters." : "No dispatches yet — click “＋ New dispatch” to record the first one."}</div>`;
+      return;
+    }
+    let tb = 0, ta = 0, tg = 0, tw = 0, tn = 0;
+    const body = rows.map(d => {
+      tb += signedBags(d); ta += Number(d.amount) || 0; tg += Number(d.gst) || 0; tw += Number(d.wht) || 0; tn += Number(d.net) || 0;
+      const neg = d.isReturn ? " neg" : "";
+      return `<tr>
+        <td class="mono"><b>${esc(d.contractNo)}</b></td>
+        <td style="white-space:nowrap;">${esc(fmtShort(d.date))}</td>
+        <td>${esc(d.seller)}</td><td>${esc(d.buyer)}</td><td>${esc(d.quality)}</td>
+        <td class="num">${money(d.rate)}<div class="hint" style="margin:0;">${d.rateBasis ? "/ " + esc(rateBasisLabel(d.rateBasis)) : ""}</div></td>
+        <td style="text-align:center;">${d.gstOn === false ? "N" : "+"}</td>
+        <td class="num${neg}"><b>${d.isReturn ? "−" : ""}${fmtNum(d.bags)}</b></td>
+        <td><input type="text" class="mini mono" data-dfield="invoice" data-id="${d.id}" value="${esc(d.invoice || "")}" placeholder="${d.isReturn ? "Return" : "Invoice #"}"></td>
+        <td><input type="text" class="mini" data-dfield="bill" data-id="${d.id}" value="${esc(d.bill || "")}"></td>
+        <td><input type="text" class="mini" data-dfield="chq" data-id="${d.id}" value="${esc(d.chq || "")}"></td>
+        <td class="num${neg}">${fmtNum(d.amount)}</td><td class="num${neg}">${fmtNum(d.gst)}</td>
+        <td class="num">${d.wht ? fmtNum(d.wht) : "0"}</td><td class="num${neg}"><b>${fmtNum(d.net)}</b></td>
+        <td><div style="display:flex; flex-direction:column; gap:2px; align-items:flex-start;"><button class="btn btn-sm btn-ghost" data-edit-disp="${d.id}">Edit</button><button class="btn btn-sm btn-ghost neg" data-del-disp="${d.id}">Delete</button></div></td>
+      </tr>`;
+    }).join("");
+    $("dispTableWrap").innerHTML = `<table><thead><tr>
+        <th>Cont. #</th><th>Date</th><th>Seller</th><th>Buyer</th><th>Count</th><th class="num">Rate</th><th>G.S.T</th><th class="num">Bags</th>
+        <th>Invoice #</th><th>Bill #</th><th>Chq. #</th><th class="num">Amount</th><th class="num">GST</th><th class="num">W.Tax Ded.</th><th class="num">Net Amount</th><th></th>
+      </tr></thead><tbody>${body}
+      <tr style="font-weight:700; background:var(--surface-alt);"><td colspan="7" style="text-align:right;">TOTAL</td><td class="num">${fmtNum(tb)}</td><td></td><td></td><td></td>
+        <td class="num">${fmtNum(ta)}</td><td class="num">${fmtNum(tg)}</td><td class="num">${fmtNum(tw)}</td><td class="num">${fmtNum(tn)}</td><td></td></tr>
+      </tbody></table>`;
+  }
+  $("dispTableWrap").addEventListener("change", (e)=>{
+    const el = e.target;
+    if(el && el.dataset && el.dataset.dfield) saveDispatchField(el.dataset.id, el.dataset.dfield, el.value.trim());
+  });
+  $("dispTableWrap").addEventListener("focusout", ()=>{ setTimeout(()=>{ if(pendingDispRender) renderDispDetail(); }, 60); });
+  $("dispTableWrap").addEventListener("click", async (e)=>{
+    const ed = e.target.closest("[data-edit-disp]"), del = e.target.closest("[data-del-disp]");
+    if(ed){ startEditDispatch(ed.dataset.editDisp); return; }
+    if(del){
+      const d = dispatches.find(x => x.id === del.dataset.delDisp);
+      if(!d) return;
+      const ok = await confirmDialog("Delete this dispatch?", `${d.contractNo} · ${d.isReturn ? "return of " : ""}${fmtNum(d.bags)} bags on ${fmtShort(d.date)}. The contract's balance will be updated. This can't be undone.`);
+      if(!ok) return;
+      try{ await db.collection("dispatches").doc(d.id).delete(); toast("Dispatch deleted."); }
+      catch(err){ console.error(err); toast("Couldn't delete the dispatch."); }
+    }
+  });
+  async function saveDispatchField(id, field, value){
+    const d = dispatches.find(x => x.id === id);
+    if(!d || (d[field] || "") === value) return;
+    const { id: _drop, ...rest } = d;
+    try{ await db.collection("dispatches").doc(id).set({ ...rest, [field]: value, updatedAt: Date.now() }); toast("Saved."); }
+    catch(e){ console.error(e); toast("Couldn't save that change."); }
+  }
+  ["ddFrom","ddTo","ddSeller","ddBuyer"].forEach(id => $(id).addEventListener("change", renderDispDetail));
+  $("ddSearch").addEventListener("input", renderDispDetail);
+  $("btnDispNew").addEventListener("click", ()=>{ resetDispatchForm(false); showView("dispatch"); });
+  $("ddFrom").value = firstOfMonthISO(); $("ddTo").value = todayISO();
+
+  $("btnDispExcel").addEventListener("click", ()=>{
+    const rows = filteredDispatches();
+    if(!rows.length){ toast("There are no dispatches to export for these filters."); return; }
+    const aoa = [["Cont. #","Date","Seller","Buyer","Count","Rate","G.S.T","Bags","Invoice #","Bill#","Chq. #","Amount","Gst","W.Tax Ded.","Net Amount"]];
+    let tb = 0, ta = 0, tg = 0, tw = 0, tn = 0;
+    rows.forEach(d => {
+      tb += signedBags(d); ta += Number(d.amount) || 0; tg += Number(d.gst) || 0; tw += Number(d.wht) || 0; tn += Number(d.net) || 0;
+      aoa.push([d.contractNo, isoToDate(d.date), d.seller, d.buyer, d.quality, Number(d.rate) || 0, d.gstOn === false ? "N" : "+", signedBags(d),
+        d.invoice || (d.isReturn ? "Return" : ""), d.bill || "", d.chq || "", Number(d.amount) || 0, Number(d.gst) || 0, Number(d.wht) || 0, Number(d.net) || 0]);
+    });
+    aoa.push(["TOTAL","","","","","","",tb,"","","",ta,tg,tw,tn]);
+    const from = $("ddFrom").value, to = $("ddTo").value;
+    downloadXlsx(`Dispatch-Detail-${from || "start"}-to-${to || "today"}.xlsx`, aoa, {
+      sheetName: "Dispatch Detail", dateCols: [1], dateFormat: "dd.mm.yyyy",
+      widths: [11,12,28,28,24,9,7,7,12,10,12,14,12,12,14]
+    });
+  });
+
+  // =====================================================================
+  //  SUMMARY REPORT
+  // =====================================================================
+  function summaryRows(){
+    const map = dispatchTotalsMap();
+    return contracts.map(c => {
+      const st = contractStats(c, map);
+      return {
+        c, no: contractNo(c), date: c.date || "", seller: sellerNameOf(c), buyer: buyerNameOf(c), quality: c.quality || "",
+        rate: ratePerBag(c), book: st.book, disp: st.disp, bal: st.bal, status: st.status,
+        remarks: c.summaryRemarks !== undefined && c.summaryRemarks !== null ? c.summaryRemarks : (c.paymentTerms || "")
+      };
+    });
+  }
+  function filteredSummary(){
+    const status = $("smStatus").value, seller = $("smSeller").value, q = $("smSearch").value.trim().toLowerCase();
+    return summaryRows().filter(r => {
+      if(status && r.status !== status) return false;
+      if(seller && r.seller !== seller) return false;
+      if(q && !(r.no + " " + r.seller + " " + r.buyer + " " + r.quality + " " + r.remarks).toLowerCase().includes(q)) return false;
+      return true;
+    }).sort((a, b) => a.seller.localeCompare(b.seller) || (a.date || "").localeCompare(b.date || ""));
+  }
+
+  function renderSummary(){
+    if(!isViewActive("summary")) return;
+    if(deferIfTyping("sumTableWrap", () => { pendingSumRender = true; })) return;
+    pendingSumRender = false;
+    fillOptions($("smSeller"), [...new Set(contracts.map(sellerNameOf).filter(Boolean))].sort(), "All sellers");
+    const rows = filteredSummary();
+    const running = rows.filter(r => r.status === "Running").length;
+    const sb = rows.reduce((a, r) => a + r.book, 0), sd = rows.reduce((a, r) => a + r.disp, 0), sbal = rows.reduce((a, r) => a + r.bal, 0);
+    $("sumStats").innerHTML = `<div class="stat"><span>Running contracts</span><b>${running}</b></div>
+      <div class="stat"><span>Bags booked</span><b>${fmtNum(sb)}</b></div>
+      <div class="stat"><span>Bags dispatched</span><b>${fmtNum(sd)}</b></div>
+      <div class="stat"><span>Bags remaining</span><b>${fmtNum(sbal)}</b></div>`;
+    $("smCount").textContent = `Summary Report · as of ${fmtShort(todayISO())} · showing ${rows.length} of ${contracts.length} contracts · each seller has its own colour`;
+    if(!rows.length){
+      $("sumTableWrap").innerHTML = `<div class="empty">${contracts.length ? "No contracts match these filters." : "No contracts yet. Generate a contract, or use “Import contracts from Excel” to bring in your existing summary sheet."}</div>`;
+      return;
+    }
+    const hueMap = sellerHueMap();
+    const body = rows.map(r => {
+      const pct = r.book > 0 ? Math.max(0, Math.min(100, r.disp * 100 / r.book)) : 0;
+      const pill = r.status === "Completed" ? "done" : (r.status === "Expired" ? "exp" : "run");
+      const rate = r.rate === null ? `${money(r.c.rate)}<div class="hint" style="margin:0;">/ ${esc(rateBasisLabel(r.c.rateBasis))}</div>` : fmtNum(Math.round(r.rate));
+      return `<tr class="srow" style="--h:${hueMap[r.seller] !== undefined ? hueMap[r.seller] : 200}">
+        <td class="mono"><b>${esc(r.no)}</b></td><td style="white-space:nowrap;">${esc(fmtShort(r.date))}</td>
+        <td>${esc(r.seller)}</td><td>${esc(r.buyer)}</td><td>${esc(r.quality)}</td>
+        <td class="num">${rate}</td><td class="num">${fmtNum(r.book)}</td><td class="num">${r.disp ? fmtNum(r.disp) : "—"}</td>
+        <td class="num"><b>${fmtNum(r.bal)}</b><div class="bar" style="width:70px; margin:4px 0 0 auto;"><i style="width:${pct}%"></i></div></td>
+        <td><span class="spill ${pill}">${r.status}</span>
+          <select class="mini" data-status-id="${r.c.id}" style="margin-top:4px;"><option value="">Auto</option><option value="expired" ${r.c.statusOverride === "expired" ? "selected" : ""}>Mark expired</option></select></td>
+        <td style="min-width:200px;"><input type="text" class="mini" data-remark-id="${r.c.id}" value="${esc(r.remarks)}" placeholder="Remarks"></td>
+      </tr>`;
+    }).join("");
+    $("sumTableWrap").innerHTML = `<table><thead><tr><th>Contract no</th><th>Date</th><th>Seller</th><th>Buyer</th><th>Count</th><th class="num">Rate / bag</th><th class="num">Book</th><th class="num">Disp</th><th class="num">Bal</th><th>Status</th><th>Remarks</th></tr></thead><tbody>${body}</tbody></table>`;
+  }
+  async function saveContractFields(id, fields){
+    const c = contracts.find(x => x.id === id);
+    if(!c) return;
+    const { id: _drop, ...rest } = c;
+    try{ await db.collection("contracts").doc(id).set({ ...rest, ...fields, updatedAt: Date.now() }); toast("Saved."); }
+    catch(e){ console.error(e); toast("Couldn't save that change."); }
+  }
+  $("sumTableWrap").addEventListener("change", (e)=>{
+    const el = e.target;
+    if(el.dataset && el.dataset.remarkId){
+      const c = contracts.find(x => x.id === el.dataset.remarkId);
+      if(c && (c.summaryRemarks !== undefined ? c.summaryRemarks : (c.paymentTerms || "")) !== el.value) saveContractFields(c.id, { summaryRemarks: el.value.trim() });
+    }
+    if(el.dataset && el.dataset.statusId) saveContractFields(el.dataset.statusId, { statusOverride: el.value });
+  });
+  $("sumTableWrap").addEventListener("focusout", ()=>{ setTimeout(()=>{ if(pendingSumRender) renderSummary(); }, 60); });
+  ["smStatus","smSeller"].forEach(id => $(id).addEventListener("change", renderSummary));
+  $("smSearch").addEventListener("input", renderSummary);
+
+  $("btnSumExcel").addEventListener("click", ()=>{
+    const rows = filteredSummary();
+    if(!rows.length){ toast("There are no contracts to export for these filters."); return; }
+    const aoa = [["Summary Report"], ["Date :-", isoToDate(todayISO())], [],
+      ["Contract no","DATE","SELLER","BUYER","COUNT","RATE (per bag)","BOOK","DISP","BAL","Status","Remarks"]];
+    rows.forEach(r => aoa.push([r.no, isoToDate(r.date), r.seller, r.buyer, r.quality, r.rate === null ? (Number(r.c.rate) || 0) : Math.round(r.rate), r.book, r.disp, r.bal, r.status, r.remarks]));
+    downloadXlsx(`Summary-Report-${todayISO()}.xlsx`, aoa, {
+      sheetName: "Summary Report", dateCols: [1], dateFormat: "d-mmm-yy",
+      widths: [13,11,34,34,28,14,8,8,8,11,40]
+    });
+  });
+
+  // ---------- import existing contracts from the summary sheet ----------
+  function normH(s){ return String(s || "").toLowerCase().replace(/[^a-z]/g, ""); }
+  function parseSheetDate(v, yy2){
+    if(v instanceof Date && !isNaN(v)) return new Date(v.getTime() + 12 * 3600 * 1000).toISOString().slice(0, 10);
+    if(typeof v === "number" && v > 20000) return new Date(Math.round((v - 25569) * 86400 * 1000) + 12 * 3600 * 1000).toISOString().slice(0, 10);
+    const t = String(v || "").trim();
+    let m = /^(\d{1,2})[-\/. ]([A-Za-z]{3,9})[-\/. ](\d{2,4})$/.exec(t);
+    if(m){
+      const mi = MONTHS_SHORT.findIndex(x => x.toLowerCase() === m[2].slice(0, 3).toLowerCase());
+      if(mi >= 0){ let y = Number(m[3]); if(y < 100) y += 2000; return `${y}-${pad2(mi + 1)}-${pad2(m[1])}`; }
+    }
+    m = /^(\d{1,2})[-\/.](\d{1,2})[-\/.](\d{2,4})$/.exec(t);
+    if(m){ let y = Number(m[3]); if(y < 100) y += 2000; return `${y}-${pad2(m[2])}-${pad2(m[1])}`; }
+    return yy2 ? `20${yy2}-01-01` : "";
+  }
+  function numOf(v){ const n = Number(String(v === undefined || v === null ? "" : v).replace(/,/g, "").trim()); return isNaN(n) ? 0 : n; }
+
+  async function importSummaryFile(file){
+    if(!window.XLSX){ toast("The Excel library didn't load — check your connection."); return; }
+    let wb;
+    try{ wb = XLSX.read(await file.arrayBuffer(), { type: "array", cellDates: true }); }
+    catch(e){ console.error(e); toast("Couldn't read that file."); return; }
+    const ws = wb.Sheets[wb.SheetNames[0]];
+    const grid = XLSX.utils.sheet_to_json(ws, { header: 1, raw: true, defval: "" });
+    const hi = grid.findIndex(r => { const n = r.map(normH); return n.includes("seller") && n.includes("buyer"); });
+    if(hi < 0){ toast("Couldn't find the SELLER and BUYER columns in that sheet."); return; }
+    const head = grid[hi].map(normH);
+    const col = (test) => head.findIndex(test);
+    const idx = {
+      no: col(h => h.includes("cotract") || h.includes("contract") || h === "cont"),
+      date: col(h => h === "date"), seller: col(h => h === "seller"), buyer: col(h => h === "buyer"),
+      count: col(h => h === "count"), rate: col(h => h === "rate"), book: col(h => h === "book"),
+      disp: col(h => h === "disp"), status: col(h => h === "status"), remarks: col(h => h === "remarks")
+    };
+    if(idx.no < 0){ toast("Couldn't find the contract number column."); return; }
+    const existingNos = new Set(contracts.map(c => contractNo(c)));
+    const recs = []; let skipped = 0;
+    for(let i = hi + 1; i < grid.length; i++){
+      const row = grid[i];
+      const m = /^(\d+)\s*-\s*(\d{2})$/.exec(String(row[idx.no] || "").trim());
+      if(!m) continue;
+      const no = `${m[1]}-${m[2]}`;
+      if(existingNos.has(no)){ skipped++; continue; }
+      existingNos.add(no);
+      const remarks = String(idx.remarks >= 0 ? row[idx.remarks] : "").trim();
+      const statusTxt = String(idx.status >= 0 ? row[idx.status] : "").trim().toLowerCase();
+      recs.push({
+        imported: true, ref: m[1], date: parseSheetDate(idx.date >= 0 ? row[idx.date] : "", m[2]),
+        sellerId: "", buyerId: "",
+        sellerSnap: { name: String(idx.seller >= 0 ? row[idx.seller] : "").trim() },
+        buyerSnap: { name: String(idx.buyer >= 0 ? row[idx.buyer] : "").trim() },
+        quality: String(idx.count >= 0 ? row[idx.count] : "").trim(),
+        quantity: String(numOf(idx.book >= 0 ? row[idx.book] : 0)), unit: "Bags", bagWeight: "100", bagWeightUnit: "lbs",
+        currency: "PKR", rate: String(numOf(idx.rate >= 0 ? row[idx.rate] : 0)), rateBasis: "bag",
+        gst: true, gstPct: "18", totalAmount: "", commission: "Nil",
+        paymentTerms: remarks, summaryRemarks: remarks,
+        openingDispatched: numOf(idx.disp >= 0 ? row[idx.disp] : 0),
+        statusOverride: statusTxt.includes("expire") ? "expired" : "",
+        companySnap: {}, createdAt: Date.now()
+      });
+    }
+    if(!recs.length){ toast(skipped ? "Those contracts are already in the app — nothing new to import." : "No contract rows found in that sheet."); return; }
+    const ok = await confirmDialog("Import these contracts?",
+      `${recs.length} contract${recs.length === 1 ? "" : "s"} will be added${skipped ? ` (${skipped} already in the app were skipped)` : ""}. Rates are read as the price per bag, and bags already dispatched are kept as the starting figure. Any new sellers and buyers are added to your lists too.`,
+      "Import", false);
+    if(!ok) return;
+    try{
+      const have = (list) => new Set(list.map(x => (x.name || "").trim().toLowerCase()));
+      const addNames = async (collName, names, existing) => {
+        const seen = have(existing), fresh = [];
+        names.forEach(n => { const k = n.trim().toLowerCase(); if(n.trim() && !seen.has(k)){ seen.add(k); fresh.push({ name: n.trim(), contact: "", address: "", phone: "", cnic: "", bank: "" }); } });
+        if(fresh.length) await db.collection(collName).addMany(fresh);
+        return fresh.length;
+      };
+      const ns = await addNames("sellers", recs.map(r => r.sellerSnap.name), sellers);
+      const nb = await addNames("buyers", recs.map(r => r.buyerSnap.name), buyers);
+      await db.collection("contracts").addMany(recs);
+      toast(`Imported ${recs.length} contracts${ns || nb ? ` and added ${ns} sellers and ${nb} buyers` : ""}.`);
+    }catch(e){ console.error(e); toast("The import didn't finish. Please try again."); }
+  }
+  $("btnSumImport").addEventListener("click", ()=>$("sumImportFile").click());
+  $("sumImportFile").addEventListener("change", async (e)=>{
+    const f = e.target.files[0]; e.target.value = "";
+    if(f) await importSummaryFile(f);
+  });
+
+  // =====================================================================
+  //  BACKUP & RESTORE
+  // =====================================================================
+  const BACKUP_COLLECTIONS = ["sellers","buyers","qualities","contracts","dispatches"];
+  function showLastBackup(){
+    let t = null;
+    try{ t = localStorage.getItem("lastBackupAt"); }catch(_){}
+    $("lastBackupInfo").textContent = t
+      ? `Last backup downloaded from this device: ${new Date(t).toLocaleString("en-GB", { day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" })}`
+      : "No backup has been downloaded from this device yet.";
+  }
+  $("btnBackup").addEventListener("click", async ()=>{
+    const btn = $("btnBackup"), label = btn.textContent;
+    btn.disabled = true; btn.textContent = "Preparing…";
+    try{
+      const out = { app: "yarn-contract-desk", version: 1, exportedAt: new Date().toISOString() };
+      for(const n of BACKUP_COLLECTIONS){
+        const r = await fetch("/api/" + n, { cache: "no-store" });
+        if(!r.ok) throw new Error(n);
+        out[n] = await r.json();
+      }
+      const cr = await fetch("/api/company", { cache: "no-store" });
+      if(!cr.ok) throw new Error("company");
+      out.company = await cr.json();
+      await saveFile(`yarn-contract-desk-backup-${todayISO()}.json`, new Blob([JSON.stringify(out)], { type: "application/json" }));
+      try{ localStorage.setItem("lastBackupAt", new Date().toISOString()); }catch(_){}
+      showLastBackup();
+      toast(`Backup ready — ${out.contracts.length} contracts, ${out.dispatches.length} dispatches.`);
+    }catch(e){ console.error(e); toast("Couldn't create the backup. Check your connection and try again."); }
+    btn.disabled = false; btn.textContent = label;
+  });
+  $("btnRestore").addEventListener("click", ()=>$("restoreFile").click());
+  $("restoreFile").addEventListener("change", async (e)=>{
+    const file = e.target.files[0]; e.target.value = "";
+    if(!file) return;
+    let data;
+    try{ data = JSON.parse(await file.text()); }catch(_){ toast("That file isn't a valid backup."); return; }
+    if(!data || data.app !== "yarn-contract-desk"){ toast("That file isn't a Yarn Contract Desk backup."); return; }
+    const count = (n) => Array.isArray(data[n]) ? data[n].length : 0;
+    const ok = await confirmDialog("Restore from this backup?",
+      `It contains ${count("contracts")} contracts, ${count("dispatches")} dispatches, ${count("sellers")} sellers and ${count("buyers")} buyers. Records with the same ID are replaced by the backup's version. Nothing is deleted.`,
+      "Restore", false);
+    if(!ok) return;
+    const btn = $("btnRestore"), label = btn.textContent;
+    btn.disabled = true; btn.textContent = "Restoring…";
+    try{
+      for(const n of BACKUP_COLLECTIONS){
+        const items = Array.isArray(data[n]) ? data[n] : [];
+        for(let i = 0; i < items.length; i += 100){
+          const r = await fetch("/api/restore", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ collection: n, items: items.slice(i, i + 100) }) });
+          if(!r.ok) throw new Error(n);
+        }
+      }
+      if(data.company && typeof data.company === "object" && Object.keys(data.company).length){
+        const r = await fetch("/api/restore", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ company: data.company }) });
+        if(!r.ok) throw new Error("company");
+      }
+      await db.refreshAll();
+      toast("Backup restored.");
+    }catch(err){ console.error(err); toast("The restore didn't finish. Please try again."); }
+    btn.disabled = false; btn.textContent = label;
+  });
+
 
   init();
 })();
