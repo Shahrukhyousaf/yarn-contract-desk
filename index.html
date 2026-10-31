@@ -278,6 +278,19 @@
   .calc-row{display:flex; justify-content:space-between; gap:12px; padding:8px 0; border-bottom:1px solid var(--border); font-size:13.5px;}
   .calc-row:last-child{border-bottom:none;}
   .calc-row.total{font-weight:700; font-size:16px;}
+
+  /* ---------- INZYTEX deal mode ---------- */
+  .seg{display:inline-flex; border:1px solid var(--border); border-radius:9px; overflow:hidden; background:var(--surface); margin-bottom:16px;}
+  .seg-btn{border:none; background:none; padding:10px 18px; font-size:13.5px; font-weight:600; color:var(--ink); cursor:pointer;}
+  .seg-btn.active{background:var(--deep); color:var(--deep-ink);}
+  fieldset.tside{padding:2px 0 0 12px; border-left:4px solid var(--border);}
+  fieldset.tside-buy{border-left-color:var(--deep);}
+  fieldset.tside-sell{border-left-color:var(--accent);}
+  .legend-sub{font-family:var(--font-body); font-weight:400; font-size:12.5px; color:var(--ink-muted);}
+  .chip{display:inline-flex; align-items:center; gap:6px; background:#FFF4D6; border:1px solid #E7CF8E; color:#6B4E00; border-radius:20px; padding:7px 14px; font-weight:700;}
+  .chip small{font-weight:500;}
+  .calcbox{background:var(--surface-alt); border-radius:8px; padding:6px 12px; margin-bottom:6px;}
+  .calcbox .calc-row{font-size:13px; padding:6px 0;}
 </style>
 </head>
 <body>
@@ -329,8 +342,13 @@
 
       <div class="two-col">
         <div class="card">
+          <div class="seg" id="dealModeSeg">
+            <button type="button" class="seg-btn active" id="modeBroker">Broker deal</button>
+            <button type="button" class="seg-btn" id="modeInzytex">INZYTEX</button>
+          </div>
           <div id="noPartiesBanner" class="banner" style="display:none;">Add at least one seller and one buyer before you can generate a contract.</div>
 
+          <div id="brokerParties">
           <fieldset>
             <legend>Parties</legend>
             <div class="grid2">
@@ -348,9 +366,33 @@
               </div>
             </div>
           </fieldset>
+          </div>
+          <div id="tradeParties" style="display:none;">
+            <fieldset class="tside tside-buy">
+              <legend>① Purchase Contract — buying from</legend>
+              <div class="field combo">
+                <label for="fTSellerSearch">Seller (the mill)</label>
+                <input type="text" id="fTSellerSearch" autocomplete="off" placeholder="Type to search sellers…">
+                <input type="hidden" id="fTSeller">
+                <div class="combo-list" id="fTSellerList"></div>
+              </div>
+              <div class="field"><label>Buyer</label><span class="chip"><span class="tradeName">Inzytex</span> <small>(fixed)</small></span></div>
+            </fieldset>
+            <fieldset class="tside tside-sell">
+              <legend>② Sales Contract — selling to</legend>
+              <div class="field"><label>Seller</label><span class="chip"><span class="tradeName">Inzytex</span> <small>(fixed)</small></span></div>
+              <div class="field combo">
+                <label for="fTBuyerSearch">Buyer (the customer)</label>
+                <input type="text" id="fTBuyerSearch" autocomplete="off" placeholder="Type to search buyers…">
+                <input type="hidden" id="fTBuyer">
+                <div class="combo-list" id="fTBuyerList"></div>
+              </div>
+            </fieldset>
+            <div class="hint" id="tradeDetailsHint" style="margin:-6px 0 16px;"></div>
+          </div>
 
           <fieldset>
-            <legend>Deal terms</legend>
+            <legend id="dealLegend">Deal terms</legend>
             <div class="grid2">
               <div class="field">
                 <label for="fContractNo">Reference No.</label>
@@ -395,6 +437,7 @@
                 <select id="fBagWeightUnit"><option value="lbs">Lbs</option><option value="kg">Kg</option></select>
               </div>
             </div>
+            <div id="brokerRateBlock">
             <div class="grid2">
               <div class="field">
                 <label for="fRate">Rate</label>
@@ -436,8 +479,58 @@
               </select>
               <input type="text" id="fCommissionCustom" placeholder="e.g. 2% or Rs. 5,000" style="margin-top:8px; display:none;">
             </div>
+            </div>
+          <div id="tradeDiffBlock" style="display:none;">
+            <label class="checkline"><input type="checkbox" id="tDiff"> <span>Quality or quantity is <b>different on the sales side</b> <span style="color:var(--ink-muted); font-weight:400;">(leave unticked when they are the same)</span></span></label>
+            <div id="tradeDiffFields" class="grid2" style="display:none; margin-top:12px;">
+              <div class="field"><label for="tsQuality">Sales-side quality</label><input type="text" id="tsQuality" list="qualityList" autocomplete="off"></div>
+              <div class="field"><label for="tsQuantity">Sales-side quantity</label><input type="number" id="tsQuantity" min="0" step="any"></div>
+            </div>
+          </div>
           </fieldset>
+          <div id="tradeTerms" style="display:none;">
+            <fieldset class="tside tside-buy">
+              <legend>Purchase terms <span class="legend-sub">— what you pay the mill</span></legend>
+              <div class="grid2">
+                <div class="field"><label for="tpRate">Rate</label><input type="number" id="tpRate" min="0" step="any"></div>
+                <div class="field"><label for="tpBasis">Rate Is Per</label><select id="tpBasis"></select></div>
+              </div>
+              <div class="field">
+                <label class="checkline" style="margin-bottom:8px;"><input type="checkbox" id="tpGst" checked> Add GST</label>
+                <div class="field" id="tpGstPctRow" style="max-width:160px; margin-bottom:0;"><label for="tpGstPct">GST %</label><input type="number" id="tpGstPct" min="0" step="any" value="18"></div>
+              </div>
+              <div class="field"><label for="tpPayment">Payment Terms</label><textarea id="tpPayment" placeholder="e.g. 30 Days PDC"></textarea></div>
+              <div class="grid2">
+                <div class="field"><label for="tpDelTerms">Delivery Terms</label><textarea id="tpDelTerms" placeholder="e.g. Ex-Mill"></textarea></div>
+                <div class="field"><label for="tpDelPeriod">Delivery Period</label><textarea id="tpDelPeriod" placeholder="e.g. Prompt"></textarea></div>
+              </div>
+            <div class="field">
+              <label for="tpCommission">Commission</label>
+              <select id="tpCommission"><option value="Nil">Nil</option><option value="0.5%">0.5%</option><option value="1%">1%</option><option value="__custom__">Custom…</option></select>
+              <input type="text" id="tpCommissionCustom" placeholder="e.g. 2% or Rs. 5,000" style="margin-top:8px; display:none;">
+            </div>
+              <div class="calcbox" id="tpCalc"></div>
+            </fieldset>
+            <fieldset class="tside tside-sell">
+              <legend>Sales terms <span class="legend-sub">— what the customer pays you</span></legend>
+              <div class="grid2">
+                <div class="field"><label for="tsRate">Rate</label><input type="number" id="tsRate" min="0" step="any"></div>
+                <div class="field"><label for="tsBasis">Rate Is Per</label><select id="tsBasis"></select></div>
+              </div>
+              <div class="field">
+                <label class="checkline" style="margin-bottom:8px;"><input type="checkbox" id="tsGst" checked> Add GST</label>
+                <div class="field" id="tsGstPctRow" style="max-width:160px; margin-bottom:0;"><label for="tsGstPct">GST %</label><input type="number" id="tsGstPct" min="0" step="any" value="18"></div>
+              </div>
+              <div class="field"><label for="tsPayment">Payment Terms</label><textarea id="tsPayment" placeholder="e.g. 30 Days PDC"></textarea></div>
+              <div class="grid2">
+                <div class="field"><label for="tsDelTerms">Delivery Terms</label><textarea id="tsDelTerms" placeholder="e.g. Ex-Mill"></textarea></div>
+                <div class="field"><label for="tsDelPeriod">Delivery Period</label><textarea id="tsDelPeriod" placeholder="e.g. Prompt"></textarea></div>
+              </div>
+              <div class="calcbox" id="tsCalc"></div>
+            </fieldset>
+          </div>
 
+          <div id="brokerPayBlock">
           <fieldset>
             <legend>Payment &amp; delivery</legend>
             <div class="field">
@@ -455,6 +548,7 @@
               </div>
             </div>
           </fieldset>
+          </div>
 
           <fieldset>
             <legend>Standard clauses</legend>
@@ -701,6 +795,18 @@
             <label for="cNtn">NTN (optional)</label>
             <input type="text" id="cNtn">
           </div>
+        </div>
+        <hr style="border:none; border-top:1px solid var(--border); margin:18px 0;">
+        <div class="card-title">Inzytex details</div>
+        <p class="hint" style="margin:0 0 12px;">Used on the contracts when you choose <b>INZYTEX</b> on the New Contract page (Inzytex as the buyer on the Purchase Contract and the seller on the Sales Contract).</p>
+        <div class="grid2">
+          <div class="field"><label for="cTradeName">Name as printed on contracts</label><input type="text" id="cTradeName" placeholder="Inzytex"></div>
+          <div class="field"><label for="cTradeCnic">NTN / Sales Tax No.</label><input type="text" id="cTradeCnic"></div>
+        </div>
+        <div class="field"><label for="cTradeAddress">Address</label><textarea id="cTradeAddress"></textarea></div>
+        <div class="grid2">
+          <div class="field"><label for="cTradeContact">Contact person (Attn)</label><input type="text" id="cTradeContact"></div>
+          <div class="field"><label for="cTradePhone">Phone</label><input type="text" id="cTradePhone"></div>
         </div>
         <hr style="border:none; border-top:1px solid var(--border); margin:18px 0;">
         <p class="hint" style="margin-bottom:12px;">These defaults pre-fill the "Standard clauses" section on every new contract — you can still edit them per deal.</p>
@@ -1107,6 +1213,7 @@
       prepareFadedLogo();
       fillCompanyForm();
       applyCompanyDefaultsToForm();
+      renderTradeChips();
     }, (err)=>{ console.error("company sub error", err); });
   }
 
@@ -1115,7 +1222,7 @@
       sellers = qs.docs.map(d=>({id:d.id, ...d.data()})).sort((a,b)=>(a.name||"").localeCompare(b.name||""));
       $("countSellers").textContent = sellers.length || "";
       renderSellers();
-      syncComboDisplay("Seller");
+      syncComboDisplay("Seller"); syncComboDisplay("TSeller");
       refreshDispatchInfo();
       updatePartiesBanner();
     }, (err)=>{ console.error("sellers sub error", err); });
@@ -1126,7 +1233,7 @@
       buyers = qs.docs.map(d=>({id:d.id, ...d.data()})).sort((a,b)=>(a.name||"").localeCompare(b.name||""));
       $("countBuyers").textContent = buyers.length || "";
       renderBuyers();
-      syncComboDisplay("Buyer");
+      syncComboDisplay("Buyer"); syncComboDisplay("TBuyer");
       updatePartiesBanner();
     }, (err)=>{ console.error("buyers sub error", err); });
   }
@@ -1147,7 +1254,7 @@
   }
 
   // ---------- Seller / Buyer type-to-search combo boxes ----------
-  function comboItems(kind){ return kind === "Seller" ? sellers : buyers; }
+  function comboItems(kind){ return (kind === "Seller" || kind === "TSeller") ? sellers : buyers; }
 
   function renderComboList(kind){
     const items = comboItems(kind);
@@ -1155,7 +1262,8 @@
     const matches = q ? items.filter(it => (it.name||"").toLowerCase().includes(q)) : items;
     const listEl = $("f"+kind+"List");
     if(matches.length === 0){
-      listEl.innerHTML = `<div class="combo-empty">${items.length===0 ? `No ${kind.toLowerCase()}s saved yet — add one on the ${kind}s page.` : "No matches."}</div>`;
+      const plain = kind.replace(/^T/, "");
+      listEl.innerHTML = `<div class="combo-empty">${items.length===0 ? `No ${plain.toLowerCase()}s saved yet — add one on the ${plain}s page.` : "No matches."}</div>`;
     }else{
       listEl.innerHTML = matches.map(it=>`<div class="combo-item" data-id="${it.id}">${esc(it.name||"(unnamed)")}</div>`).join("");
       listEl.querySelectorAll("[data-id]").forEach(el=>{
@@ -1183,7 +1291,7 @@
     if(item) $("f"+kind+"Search").value = item.name || "";
   }
 
-  ["Seller","Buyer"].forEach(kind=>{
+  ["Seller","Buyer","TSeller","TBuyer"].forEach(kind=>{
     const search = $("f"+kind+"Search");
     search.addEventListener("focus", ()=>renderComboList(kind));
     search.addEventListener("input", ()=>{
@@ -1218,6 +1326,9 @@
     $("cConditions").value = company.conditions || DEFAULTS.conditions;
     $("cStartRef").value = company.startingRef || "";
     $("cWhtRate").value = (company.whtRate === null || company.whtRate === undefined) ? "" : company.whtRate;
+    const tr = company.trading || {};
+    $("cTradeName").value = tr.name || ""; $("cTradeCnic").value = tr.cnic || ""; $("cTradeAddress").value = tr.address || "";
+    $("cTradeContact").value = tr.contact || ""; $("cTradePhone").value = tr.phone || "";
     setLogoDraft(company.logo || "", company.logoAspect || null);
     $("cLogoWatermark").checked = company.logoWatermark !== false;
   }
@@ -1303,6 +1414,10 @@
       conditions: $("cConditions").value.trim(),
       startingRef: $("cStartRef").value.trim() ? Number($("cStartRef").value.trim()) : null,
       whtRate: $("cWhtRate").value.trim() !== "" ? Number($("cWhtRate").value.trim()) : null,
+      trading: {
+        name: $("cTradeName").value.trim(), cnic: $("cTradeCnic").value.trim(), address: $("cTradeAddress").value.trim(),
+        contact: $("cTradeContact").value.trim(), phone: $("cTradePhone").value.trim()
+      },
       logo: logoDraft,
       logoAspect: logoDraft ? logoDraftAspect : null,
       logoWatermark: $("cLogoWatermark").checked,
@@ -1603,11 +1718,10 @@
     $("gstPctRow").style.display = $("fGst").checked ? "block" : "none";
   }
 
-  function computeBaseAmount(){
-    const qty = Number($("fQuantity").value) || 0;
-    const rate = Number($("fRate").value) || 0;
+  function baseFor(qtyStr, rateStr, basis){
+    const qty = Number(qtyStr) || 0;
+    const rate = Number(rateStr) || 0;
     const unit = $("fUnit").value;
-    const basis = $("fRateBasis").value;
     if(!qty || !rate) return null;
 
     if(unit === "Bags"){
@@ -1629,6 +1743,9 @@
     if(unit === "Kg" && basis === "maund") return (qty / KG_PER_MAUND) * rate;
     if(unit === "Lbs" && basis === "10lbs") return (qty / 10) * rate;
     return null;
+  }
+  function computeBaseAmount(){
+    return baseFor($("fQuantity").value, $("fRate").value, $("fRateBasis").value);
   }
 
   function recalcTotal(){
@@ -1658,6 +1775,7 @@
   // ---------- generate contract ----------
   function doGenerate(opts){
     opts = opts || {};
+    if(dealMode === "inzytex") return doGenerateTrading(opts);
     const sellerId = $("fSeller").value, buyerId = $("fBuyer").value;
     const seller = sellers.find(s=>s.id===sellerId);
     const buyer = buyers.find(b=>b.id===buyerId);
@@ -1713,6 +1831,7 @@
   // so a quick double-click can never create the same contract twice.
   let saveChain = Promise.resolve();
   function autoSaveContract(data){
+    if(data.trading) return autoSaveTrading(data);
     saveChain = saveChain.then(async ()=>{
       if(!db){ toast("Generated, but shared storage isn't available — it was NOT saved."); return; }
       try{
@@ -1752,7 +1871,9 @@
 
   function renderPreview(){
     if(!currentContract) return;
-    $("previewArea").innerHTML = activeDocType === "sale" ? buildSalesContractHTML(currentContract) : buildPurchaseContractHTML(currentContract);
+    const d = currentContract.trading ? (currentContract[activeDocType] || null) : currentContract;
+    if(!d){ $("previewArea").innerHTML = `<div class="paper-empty">This side of the deal isn't saved any more (it may have been deleted from History).</div>`; return; }
+    $("previewArea").innerHTML = activeDocType === "sale" ? buildSalesContractHTML(d) : buildPurchaseContractHTML(d);
   }
 
   function updateSaveButtonLabel(){
@@ -1779,6 +1900,9 @@
     currentContract = null;
     editingContractId = null;
     editingCreatedAt = null;
+    editingLegIds = { purchase: null, sale: null };
+    editingDealId = null;
+    resetTradeFields();
     updateSaveButtonLabel();
     ["btnPrint","btnPdf","btnDocx"].forEach(id=>$(id).disabled=true);
   }
@@ -2165,12 +2289,14 @@
     $("historyTableWrap").querySelectorAll("[data-view-contract]").forEach(b=>{
       b.addEventListener("click", ()=>{
         const c = contracts.find(x=>x.id===b.dataset.viewContract);
-        currentContract = c;
+        currentContract = (c.dealType === "inzytex" && c.dealId) ? pairOf(c) : c;
         editingContractId = null;
         editingCreatedAt = null;
+        editingLegIds = { purchase: null, sale: null };
+        editingDealId = null;
         goToNewContractView();
         $("docTabs").style.display = "flex";
-        setActiveTab("sale");
+        setActiveTab(c.leg === "purchase" ? "purchase" : "sale");
         renderPreview();
         ["btnPrint","btnPdf","btnDocx"].forEach(id=>$(id).disabled=false);
         updateSaveButtonLabel();
@@ -2180,8 +2306,19 @@
     $("historyTableWrap").querySelectorAll("[data-edit-contract]").forEach(b=>{
       b.addEventListener("click", ()=>{
         const c = contracts.find(x=>x.id===b.dataset.editContract);
+        if(c.dealType === "inzytex" && c.dealId){
+          goToNewContractView();
+          loadTradingPair(c);
+          doGenerateTrading({silent:true});
+          toast("Both sides of this INZYTEX deal are loaded — make your changes, then click Update Contract.");
+          window.scrollTo({top:0, behavior:"smooth"});
+          return;
+        }
         editingContractId = c.id;
         editingCreatedAt = c.createdAt || Date.now();
+        editingLegIds = { purchase: null, sale: null };
+        editingDealId = null;
+        applyDealMode("broker");
         goToNewContractView();
         populateFormFromContract(c);
         doGenerate({silent:true});
@@ -2194,7 +2331,7 @@
         const c = contracts.find(x=>x.id===b.dataset.deleteContract);
         if(!c) return;
         const label = `SC/PC ${c.ref || ""} — ${(c.sellerSnap && c.sellerSnap.name) || "seller"} to ${(c.buyerSnap && c.buyerSnap.name) || "buyer"}`;
-        const ok = await confirmDialog("Delete this contract?", `${label} will be permanently removed from your history. This can't be undone.`);
+        const ok = await confirmDialog("Delete this contract?", `${label} will be permanently removed from your history.${c.dealId ? " This is one side of an INZYTEX deal; the other side stays in History." : ""} This can't be undone.`);
         if(!ok) return;
         try{
           await db.collection("contracts").doc(c.id).delete();
@@ -2203,6 +2340,261 @@
         }catch(e){ console.error(e); toast("Couldn't delete the contract."); }
       });
     });
+  }
+
+  // =====================================================================
+  //  INZYTEX DEALS — Inzytex buys from a mill and resells to a customer.
+  //  One entry makes two saved contracts (a Purchase and a Sales Contract)
+  //  with the same number, linked by a shared dealId.
+  // =====================================================================
+  let dealMode = "broker";
+  let editingLegIds = { purchase: null, sale: null };
+  let editingDealId = null;
+
+  function tradingParty(){
+    const t = (company && company.trading) || {};
+    return { name: t.name || "Inzytex", address: t.address || "", cnic: t.cnic || "", contact: t.contact || "", phone: t.phone || "", bank: "" };
+  }
+  function newDealId(){ return "d" + Date.now().toString(36) + Math.random().toString(36).slice(2, 8); }
+
+  function renderTradeChips(){
+    const t = tradingParty(), tr = (company && company.trading) || {};
+    document.querySelectorAll(".tradeName").forEach(el => { el.textContent = t.name; });
+    $("tradeDetailsHint").textContent = (tr.cnic || tr.address) ? "" : `Tip: add ${t.name}'s address and NTN under My Brokerage → Inzytex details so they print on the contracts.`;
+  }
+
+  function applyDealMode(mode){
+    dealMode = mode;
+    const tr = mode === "inzytex";
+    $("modeBroker").classList.toggle("active", !tr);
+    $("modeInzytex").classList.toggle("active", tr);
+    $("brokerParties").style.display = tr ? "none" : "";
+    $("brokerRateBlock").style.display = tr ? "none" : "";
+    $("brokerPayBlock").style.display = tr ? "none" : "";
+    $("tradeParties").style.display = tr ? "" : "none";
+    $("tradeDiffBlock").style.display = tr ? "" : "none";
+    $("tradeTerms").style.display = tr ? "" : "none";
+    $("dealLegend").textContent = tr ? "Deal details — shared by both contracts" : "Deal terms";
+    renderTradeChips();
+    recalcTrade();
+  }
+  function setModeFromUser(mode){
+    if(mode === dealMode) return;
+    if(editingContractId){ toast("This contract is already saved. Click ＋ New contract first to switch the type of deal."); return; }
+    applyDealMode(mode);
+  }
+  $("modeBroker").addEventListener("click", ()=>setModeFromUser("broker"));
+  $("modeInzytex").addEventListener("click", ()=>setModeFromUser("inzytex"));
+
+  ["tpBasis","tsBasis"].forEach(id => { $(id).innerHTML = $("fRateBasis").innerHTML; $(id).value = "10lbs"; });
+  ["tp","ts"].forEach(pre => {
+    [pre + "Rate", pre + "GstPct"].forEach(id => $(id).addEventListener("input", recalcTrade));
+    $(pre + "Basis").addEventListener("change", recalcTrade);
+    $(pre + "Gst").addEventListener("change", ()=>{
+      $(pre + "GstPctRow").style.display = $(pre + "Gst").checked ? "block" : "none";
+      recalcTrade();
+    });
+  });
+  ["fQuantity","fBagWeight","tsQuantity"].forEach(id => $(id).addEventListener("input", recalcTrade));
+  ["fUnit","fBagWeightUnit"].forEach(id => $(id).addEventListener("change", recalcTrade));
+  $("tDiff").addEventListener("change", ()=>{
+    const on = $("tDiff").checked;
+    $("tradeDiffFields").style.display = on ? "grid" : "none";
+    if(on){
+      if(!$("tsQuality").value) $("tsQuality").value = $("fQuality").value;
+      if(!$("tsQuantity").value) $("tsQuantity").value = $("fQuantity").value;
+    }
+    recalcTrade();
+  });
+  $("tpCommission").addEventListener("change", ()=>{
+    $("tpCommissionCustom").style.display = $("tpCommission").value === "__custom__" ? "block" : "none";
+  });
+
+  function tradeSideFigures(pre){
+    const diff = $("tDiff").checked;
+    const qty = (pre === "ts" && diff && $("tsQuantity").value.trim()) ? $("tsQuantity").value : $("fQuantity").value;
+    const base = baseFor(qty, $(pre + "Rate").value, $(pre + "Basis").value);
+    const gstOn = $(pre + "Gst").checked, gstPct = Number($(pre + "GstPct").value) || 0;
+    if(base === null) return { qty, base: null, gst: 0, total: null, gstOn, gstPct };
+    const gst = gstOn ? base * gstPct / 100 : 0;
+    return { qty, base, gst, total: base + gst, gstOn, gstPct };
+  }
+  function recalcTrade(){
+    if(dealMode !== "inzytex") return;
+    ["tp","ts"].forEach(pre => {
+      const f = tradeSideFigures(pre), box = $(pre + "Calc"), unit = $("fUnit").value.toLowerCase();
+      if(!f.qty || !$(pre + "Rate").value){ box.innerHTML = `<div class="hint" style="margin:6px 0;">Enter the quantity and rate to see the total.</div>`; return; }
+      if(f.base === null){ box.innerHTML = `<div class="hint" style="margin:6px 0;">Can't work out a total from these units.</div>`; return; }
+      const r = (n) => money(Math.round(n * 100) / 100);
+      box.innerHTML = `<div class="calc-row"><span>Amount (${esc(String(Number(f.qty) || 0))} ${esc(unit)})</span><span class="num">${r(f.base)}</span></div>
+        <div class="calc-row"><span>GST ${f.gstOn ? f.gstPct + "%" : "(not added)"}</span><span class="num">${r(f.gst)}</span></div>
+        <div class="calc-row total"><span>${pre === "tp" ? "Total payable to the mill" : "Total receivable from the customer"}</span><span class="num">${r(f.total)}</span></div>`;
+    });
+  }
+
+  function commissionOf(selId, customId){
+    const v = $(selId).value;
+    return v === "__custom__" ? $(customId).value.trim() : v;
+  }
+
+  function doGenerateTrading(opts){
+    opts = opts || {};
+    const mill = sellers.find(x => x.id === $("fTSeller").value);
+    const cust = buyers.find(x => x.id === $("fTBuyer").value);
+    if(!mill){ toast("Please select the mill you are buying from."); return false; }
+    if(!cust){ toast("Please select the customer you are selling to."); return false; }
+    const quality = $("fQuality").value.trim();
+    if(!quality){ toast("Please describe the quality/specification."); return false; }
+    const qty = $("fQuantity").value.trim();
+    if(!qty){ toast("Please enter the quantity."); return false; }
+    if(!$("tpRate").value || !$("tsRate").value){ toast("Please enter both the purchase rate and the sales rate."); return false; }
+    const diff = $("tDiff").checked;
+    const salesQuality = (diff && $("tsQuality").value.trim()) ? $("tsQuality").value.trim() : quality;
+    const salesQty = (diff && $("tsQuantity").value.trim()) ? $("tsQuantity").value.trim() : qty;
+    if(!editingDealId) editingDealId = newDealId();
+    const inz = tradingParty();
+    const common = {
+      dealType: "inzytex", dealId: editingDealId,
+      ref: $("fContractNo").value.trim() || nextContractNo(),
+      date: $("fDate").value || todayISO(),
+      unit: $("fUnit").value, bagWeight: $("fBagWeight").value.trim(), bagWeightUnit: $("fBagWeightUnit").value,
+      currency: $("fCurrency").value,
+      packing: $("fPacking").value.trim(), weighment: $("fWeighment").value.trim(), conditions: $("fConditions").value.trim(),
+      otherTerms: $("fSpecial").value.trim(), remarks: $("fRemarks").value.trim(),
+      companySnap: companyWithoutLogo(),
+    };
+    const fp = tradeSideFigures("tp"), fs = tradeSideFigures("ts");
+    const tot = (f) => f.total === null ? "" : String(Math.round(f.total * 100) / 100);
+    const purchase = { ...common, leg: "purchase",
+      sellerId: mill.id, sellerSnap: mill, buyerId: "", buyerSnap: inz,
+      quality, quantity: qty,
+      rate: $("tpRate").value.trim(), rateBasis: $("tpBasis").value, gst: $("tpGst").checked, gstPct: $("tpGstPct").value.trim(), totalAmount: tot(fp),
+      commission: commissionOf("tpCommission", "tpCommissionCustom") || "Nil",
+      paymentTerms: $("tpPayment").value.trim(), deliveryTerms: $("tpDelTerms").value.trim(), deliveryPeriod: $("tpDelPeriod").value.trim() };
+    const sale = { ...common, leg: "sale",
+      sellerId: "", sellerSnap: inz, buyerId: cust.id, buyerSnap: cust,
+      quality: salesQuality, quantity: salesQty,
+      rate: $("tsRate").value.trim(), rateBasis: $("tsBasis").value, gst: $("tsGst").checked, gstPct: $("tsGstPct").value.trim(), totalAmount: tot(fs),
+      commission: "Nil",
+      paymentTerms: $("tsPayment").value.trim(), deliveryTerms: $("tsDelTerms").value.trim(), deliveryPeriod: $("tsDelPeriod").value.trim() };
+    currentContract = { trading: true, ref: common.ref, date: common.date, dealId: editingDealId, purchase, sale };
+    activeDocType = "sale";
+    $("docTabs").style.display = "flex";
+    setActiveTab("sale");
+    renderPreview();
+    ["btnNewContract","btnPrint","btnPdf","btnDocx"].forEach(id => $(id).disabled = false);
+    updateSaveButtonLabel();
+    if(!opts.silent){
+      maybeSaveQuality(quality);
+      if(salesQuality !== quality) maybeSaveQuality(salesQuality);
+      autoSaveContract(currentContract);
+    }
+    return true;
+  }
+
+  // Saves (or updates) BOTH contracts of the deal. Uses the same one-after-another queue as normal contracts.
+  function autoSaveTrading(data){
+    saveChain = saveChain.then(async ()=>{
+      if(!db){ toast("Generated, but shared storage isn't available — it was NOT saved."); return; }
+      try{
+        const now = Date.now();
+        if(editingLegIds.purchase || editingLegIds.sale){
+          for(const leg of ["purchase", "sale"]){
+            const rec = data[leg], id = editingLegIds[leg];
+            if(id) await db.collection("contracts").doc(id).set({ ...rec, createdAt: editingCreatedAt || now, updatedAt: now });
+            else { const r = await db.collection("contracts").add({ ...rec, createdAt: editingCreatedAt || now }); editingLegIds[leg] = r.id; }
+          }
+          editingContractId = editingLegIds.purchase || editingLegIds.sale;
+          updateSaveButtonLabel();
+          toast("Both contracts updated and saved.");
+        }else{
+          contractNoAuto = false; // freeze the number before saving (see normal contracts)
+          let ids;
+          try{
+            ids = await db.collection("contracts").addMany([{ ...data.purchase, createdAt: now }, { ...data.sale, createdAt: now }]);
+          }catch(err){ contractNoAuto = true; throw err; }
+          editingLegIds = { purchase: ids[0], sale: ids[1] };
+          editingContractId = ids[0];
+          editingCreatedAt = now;
+          updateSaveButtonLabel();
+          toast("Both contracts generated and saved to History.");
+        }
+      }catch(e){
+        console.error(e);
+        toast("Generated, but it could NOT be saved. Check your connection and click Generate again.");
+      }
+    });
+    return saveChain;
+  }
+
+  function pairOf(c){
+    const other = c.dealId ? contracts.find(x => x.dealId === c.dealId && x.id !== c.id) : null;
+    const purchase = c.leg === "purchase" ? c : other, sale = c.leg === "sale" ? c : other;
+    return { trading: true, ref: c.ref, date: c.date, dealId: c.dealId, purchase: purchase || null, sale: sale || null };
+  }
+
+  function pickParty(kind, id, name){
+    selectComboItem(kind, id || "");
+    if(!$("f" + kind).value && name){
+      const m = comboItems(kind).find(x => (x.name || "").trim().toLowerCase() === name.trim().toLowerCase());
+      if(m) selectComboItem(kind, m.id); else $("f" + kind + "Search").value = name;
+    }
+  }
+  function fillSide(pre, r){
+    if(!r) return;
+    $(pre + "Rate").value = r.rate || "";
+    $(pre + "Basis").value = r.rateBasis || "10lbs";
+    $(pre + "Gst").checked = !!r.gst;
+    $(pre + "GstPct").value = r.gstPct || "18";
+    $(pre + "GstPctRow").style.display = r.gst ? "block" : "none";
+    $(pre + "Payment").value = r.paymentTerms || "";
+    $(pre + "DelTerms").value = r.deliveryTerms || "";
+    $(pre + "DelPeriod").value = r.deliveryPeriod || "";
+  }
+
+  // Opens an existing INZYTEX deal (either of its two contracts) in the form.
+  function loadTradingPair(c){
+    const pr = pairOf(c), p = pr.purchase, s = pr.sale, base = p || s;
+    applyDealMode("inzytex");
+    editingLegIds = { purchase: p ? p.id : null, sale: s ? s.id : null };
+    editingContractId = editingLegIds.purchase || editingLegIds.sale;
+    editingCreatedAt = base.createdAt || Date.now();
+    editingDealId = base.dealId;
+    contractNoAuto = false;
+    $("fContractNo").value = base.ref || "";
+    $("fDate").value = base.date || "";
+    $("fQuality").value = base.quality || "";
+    $("fQuantity").value = base.quantity || "";
+    $("fUnit").value = base.unit || "Bags";
+    $("fBagWeight").value = base.bagWeight || "";
+    $("fBagWeightUnit").value = base.bagWeightUnit || "lbs";
+    $("fCurrency").value = base.currency || "PKR";
+    pickParty("TSeller", p && p.sellerId, p && p.sellerSnap && p.sellerSnap.name);
+    pickParty("TBuyer", s && s.buyerId, s && s.buyerSnap && s.buyerSnap.name);
+    fillSide("tp", p); fillSide("ts", s);
+    if(p){
+      const known = ["Nil", "0.5%", "1%"];
+      if(known.includes(p.commission)){ $("tpCommission").value = p.commission || "Nil"; $("tpCommissionCustom").style.display = "none"; $("tpCommissionCustom").value = ""; }
+      else { $("tpCommission").value = "__custom__"; $("tpCommissionCustom").style.display = "block"; $("tpCommissionCustom").value = p.commission || ""; }
+    }
+    const differs = !!(p && s && (p.quality !== s.quality || String(p.quantity) !== String(s.quantity)));
+    $("tDiff").checked = differs;
+    $("tradeDiffFields").style.display = differs ? "grid" : "none";
+    $("tsQuality").value = differs ? (s.quality || "") : "";
+    $("tsQuantity").value = differs ? (s.quantity || "") : "";
+    $("fPacking").value = base.packing || ""; $("fWeighment").value = base.weighment || ""; $("fConditions").value = base.conditions || "";
+    $("fSpecial").value = base.otherTerms || ""; $("fRemarks").value = base.remarks || "";
+    toggleBagWeightRow();
+    recalcTrade();
+  }
+
+  function resetTradeFields(){
+    ["fTSeller","fTBuyer","fTSellerSearch","fTBuyerSearch","tpRate","tsRate","tpPayment","tsPayment","tpDelTerms","tsDelTerms","tpDelPeriod","tsDelPeriod","tsQuality","tsQuantity","tpCommissionCustom"].forEach(id => { $(id).value = ""; });
+    $("tpBasis").value = "10lbs"; $("tsBasis").value = "10lbs";
+    ["tp","ts"].forEach(pre => { $(pre + "Gst").checked = true; $(pre + "GstPct").value = "18"; $(pre + "GstPctRow").style.display = "block"; });
+    $("tDiff").checked = false; $("tradeDiffFields").style.display = "none";
+    $("tpCommission").value = "Nil"; $("tpCommissionCustom").style.display = "none";
+    recalcTrade();
   }
 
   // =====================================================================
