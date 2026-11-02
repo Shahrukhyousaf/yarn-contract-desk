@@ -480,13 +480,6 @@
               <input type="text" id="fCommissionCustom" placeholder="e.g. 2% or Rs. 5,000" style="margin-top:8px; display:none;">
             </div>
             </div>
-          <div id="tradeDiffBlock" style="display:none;">
-            <label class="checkline"><input type="checkbox" id="tDiff"> <span>Quality or quantity is <b>different on the sales side</b> <span style="color:var(--ink-muted); font-weight:400;">(leave unticked when they are the same)</span></span></label>
-            <div id="tradeDiffFields" class="grid2" style="display:none; margin-top:12px;">
-              <div class="field"><label for="tsQuality">Sales-side quality</label><input type="text" id="tsQuality" list="qualityList" autocomplete="off"></div>
-              <div class="field"><label for="tsQuantity">Sales-side quantity</label><input type="number" id="tsQuantity" min="0" step="any"></div>
-            </div>
-          </div>
           </fieldset>
           <div id="tradeTerms" style="display:none;">
             <fieldset class="tside tside-buy">
@@ -2372,7 +2365,6 @@
     $("brokerRateBlock").style.display = tr ? "none" : "";
     $("brokerPayBlock").style.display = tr ? "none" : "";
     $("tradeParties").style.display = tr ? "" : "none";
-    $("tradeDiffBlock").style.display = tr ? "" : "none";
     $("tradeTerms").style.display = tr ? "" : "none";
     $("dealLegend").textContent = tr ? "Deal details — shared by both contracts" : "Deal terms";
     renderTradeChips();
@@ -2395,24 +2387,14 @@
       recalcTrade();
     });
   });
-  ["fQuantity","fBagWeight","tsQuantity"].forEach(id => $(id).addEventListener("input", recalcTrade));
+  ["fQuantity","fBagWeight"].forEach(id => $(id).addEventListener("input", recalcTrade));
   ["fUnit","fBagWeightUnit"].forEach(id => $(id).addEventListener("change", recalcTrade));
-  $("tDiff").addEventListener("change", ()=>{
-    const on = $("tDiff").checked;
-    $("tradeDiffFields").style.display = on ? "grid" : "none";
-    if(on){
-      if(!$("tsQuality").value) $("tsQuality").value = $("fQuality").value;
-      if(!$("tsQuantity").value) $("tsQuantity").value = $("fQuantity").value;
-    }
-    recalcTrade();
-  });
   $("tpCommission").addEventListener("change", ()=>{
     $("tpCommissionCustom").style.display = $("tpCommission").value === "__custom__" ? "block" : "none";
   });
 
   function tradeSideFigures(pre){
-    const diff = $("tDiff").checked;
-    const qty = (pre === "ts" && diff && $("tsQuantity").value.trim()) ? $("tsQuantity").value : $("fQuantity").value;
+    const qty = $("fQuantity").value;
     const base = baseFor(qty, $(pre + "Rate").value, $(pre + "Basis").value);
     const gstOn = $(pre + "Gst").checked, gstPct = Number($(pre + "GstPct").value) || 0;
     if(base === null) return { qty, base: null, gst: 0, total: null, gstOn, gstPct };
@@ -2448,9 +2430,6 @@
     const qty = $("fQuantity").value.trim();
     if(!qty){ toast("Please enter the quantity."); return false; }
     if(!$("tpRate").value || !$("tsRate").value){ toast("Please enter both the purchase rate and the sales rate."); return false; }
-    const diff = $("tDiff").checked;
-    const salesQuality = (diff && $("tsQuality").value.trim()) ? $("tsQuality").value.trim() : quality;
-    const salesQty = (diff && $("tsQuantity").value.trim()) ? $("tsQuantity").value.trim() : qty;
     if(!editingDealId) editingDealId = newDealId();
     const inz = tradingParty();
     const common = {
@@ -2473,7 +2452,7 @@
       paymentTerms: $("tpPayment").value.trim(), deliveryTerms: $("tpDelTerms").value.trim(), deliveryPeriod: $("tpDelPeriod").value.trim() };
     const sale = { ...common, leg: "sale",
       sellerId: "", sellerSnap: inz, buyerId: cust.id, buyerSnap: cust,
-      quality: salesQuality, quantity: salesQty,
+      quality, quantity: qty,
       rate: $("tsRate").value.trim(), rateBasis: $("tsBasis").value, gst: $("tsGst").checked, gstPct: $("tsGstPct").value.trim(), totalAmount: tot(fs),
       commission: "Nil",
       paymentTerms: $("tsPayment").value.trim(), deliveryTerms: $("tsDelTerms").value.trim(), deliveryPeriod: $("tsDelPeriod").value.trim() };
@@ -2486,7 +2465,6 @@
     updateSaveButtonLabel();
     if(!opts.silent){
       maybeSaveQuality(quality);
-      if(salesQuality !== quality) maybeSaveQuality(salesQuality);
       autoSaveContract(currentContract);
     }
     return true;
@@ -2577,11 +2555,6 @@
       if(known.includes(p.commission)){ $("tpCommission").value = p.commission || "Nil"; $("tpCommissionCustom").style.display = "none"; $("tpCommissionCustom").value = ""; }
       else { $("tpCommission").value = "__custom__"; $("tpCommissionCustom").style.display = "block"; $("tpCommissionCustom").value = p.commission || ""; }
     }
-    const differs = !!(p && s && (p.quality !== s.quality || String(p.quantity) !== String(s.quantity)));
-    $("tDiff").checked = differs;
-    $("tradeDiffFields").style.display = differs ? "grid" : "none";
-    $("tsQuality").value = differs ? (s.quality || "") : "";
-    $("tsQuantity").value = differs ? (s.quantity || "") : "";
     $("fPacking").value = base.packing || ""; $("fWeighment").value = base.weighment || ""; $("fConditions").value = base.conditions || "";
     $("fSpecial").value = base.otherTerms || ""; $("fRemarks").value = base.remarks || "";
     toggleBagWeightRow();
@@ -2589,10 +2562,9 @@
   }
 
   function resetTradeFields(){
-    ["fTSeller","fTBuyer","fTSellerSearch","fTBuyerSearch","tpRate","tsRate","tpPayment","tsPayment","tpDelTerms","tsDelTerms","tpDelPeriod","tsDelPeriod","tsQuality","tsQuantity","tpCommissionCustom"].forEach(id => { $(id).value = ""; });
+    ["fTSeller","fTBuyer","fTSellerSearch","fTBuyerSearch","tpRate","tsRate","tpPayment","tsPayment","tpDelTerms","tsDelTerms","tpDelPeriod","tsDelPeriod","tpCommissionCustom"].forEach(id => { $(id).value = ""; });
     $("tpBasis").value = "10lbs"; $("tsBasis").value = "10lbs";
     ["tp","ts"].forEach(pre => { $(pre + "Gst").checked = true; $(pre + "GstPct").value = "18"; $(pre + "GstPctRow").style.display = "block"; });
-    $("tDiff").checked = false; $("tradeDiffFields").style.display = "none";
     $("tpCommission").value = "Nil"; $("tpCommissionCustom").style.display = "none";
     recalcTrade();
   }
